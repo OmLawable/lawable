@@ -1,0 +1,7 @@
+RewriteEngine On
+
+# Send the site root to the HTML login page
+RewriteRule ^$ pages/login.php [L]
+
+# Allow direct access to the protected home page
+RewriteRule ^home\.php$ home.php [L]

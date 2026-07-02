@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lawable — Transforming Legal Education</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="lawable.css" />
+</head>
+<body>
+
+<!-- CURSOR GLOW -->
+<div class="cursor-glow" id="cursorGlow"></div>
+
+<!-- SCROLL PROGRESS -->
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- BACK TO TOP -->
+<button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<!-- ═══ NAV ═══════════════════════════════════════════════ -->
+<nav id="navbar">
+  <a href="#" class="nav-logo">Law<span>able</span></a>
+  <ul class="nav-links">
+    <li><a href="#offerings">Offerings</a></li>
+    <li><a href="#courses">Courses</a></li>
+    <li><a href="#about">About</a></li>
+    <li><a href="#testimonials">Reviews</a></li>
+    <li><a href="#faq">FAQ</a></li>
+    <li><a href="#team">Team</a></li>
+    <li><a href="https://lawable.in/academy/home/login" class="nav-cta">Log in →</a></li>
+  </ul>
+  <button class="nav-hamburger" id="hamburger" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- Mobile drawer -->
+<nav class="nav-drawer" id="drawer">
+  <a href="#offerings" onclick="closeDrawer()">Offerings</a>
+  <a href="#courses"   onclick="closeDrawer()">Courses</a>
+  <a href="#about"     onclick="closeDrawer()">About</a>
+  <a href="#testimonials" onclick="closeDrawer()">Reviews</a>
+  <a href="#faq"       onclick="closeDrawer()">FAQ</a>
+  <a href="#team"      onclick="closeDrawer()">Team</a>
+  <a href="https://lawable.in/academy/home/login" class="drawer-cta">Log in →</a>
+</nav>
+
+<!-- ═══ HERO ═══════════════════════════════════════════════ -->
+<section class="hero" id="home">
+  <div class="hero-bg"></div>
+  <div class="hero-deco">
+    <span>⚖</span><span>📜</span><span>🏛</span><span>⚖</span><span>📖</span>
+  </div>
+
+  <div class="hero-eyebrow">Legal Education Platform — India</div>
+  <h1>
+    Transforming<br>
+    <em id="heroWord">Legal</em> Education<br>
+    for Everyone
+  </h1>
+  <p class="hero-sub">
+    Courses, live webinars, AI-proctored exams, and mentorship —
+    built to make quality legal learning accessible to every student, professional, and institution.
+  </p>
+  <div class="hero-actions">
+    <a href="https://lawable.in/academy/" class="btn-primary">Explore Academy →</a>
+    <a href="#offerings" class="btn-ghost">See Offerings</a>
+  </div>
+
+  <div class="hero-stats">
+    <div class="stat-item">
+      <div class="stat-num"><span class="counter" data-target="500">0</span><sup>+</sup></div>
+      <div class="stat-label">Students Helped</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num"><span class="counter" data-target="10">0</span><sup>k+ </sup></div>
+      <div class="stat-label">Exam Questions</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num"><span class="counter" data-target="20">0</span><sup>+</sup></div>
+      <div class="stat-label">Exams Conducted</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num"><span class="counter" data-target="12">0</span><sup>+</sup></div>
+      <div class="stat-label">Partner Colleges</div>
+    </div>
+  </div>
+</section>
+
+<!-- TICKER -->
+<div class="ticker-wrap">
+  <div class="ticker-inner">
+    <span>Constitutional Law</span>
+    <span>Corporate Law</span>
+    <span>Criminal Procedure</span>
+    <span>Legal Ethics</span>
+    <span>Online Examinations</span>
+    <span>Internship Programs</span>
+    <span>Live Webinars</span>
+    <span>AI Proctoring</span>
+    <span>Constitutional Law</span>
+    <span>Corporate Law</span>
+    <span>Criminal Procedure</span>
+    <span>Legal Ethics</span>
+    <span>Online Examinations</span>
+    <span>Internship Programs</span>
+    <span>Live Webinars</span>
+    <span>AI Proctoring</span>
+  </div>
+</div>
+
+<!-- ═══ OFFERINGS ══════════════════════════════════════════ -->
+<section id="offerings">
+  <div class="fade-up">
+    <div class="section-eyebrow">What We Offer</div>
+    <h2 class="section-title">Everything you need to<br>master law</h2>
+    <p class="section-body">
+      A full suite of products for students, working professionals, and institutions —
+      from self-paced learning to enterprise exam solutions.
+    </p>
+
+    <div class="offerings-tabs">
+      <button class="tab-btn active" data-filter="all">All</button>
+      <button class="tab-btn" data-filter="student">For Students</button>
+      <button class="tab-btn" data-filter="professional">For Professionals</button>
+      <button class="tab-btn" data-filter="institution">For Institutions</button>
+    </div>
+  </div>
+
+  <div class="offerings-carousel fade-up">
+    <div class="offerings-nav">
+      <button class="offerings-arrow offerings-prev" type="button" aria-label="Scroll left">←</button>
+      <button class="offerings-arrow offerings-next" type="button" aria-label="Scroll right">→</button>
+    </div>
+
+    <div class="offerings-viewport">
+      <div class="offerings-track">
+        <div class="offering-card" data-tag="student professional">
+          <div class="offering-icon">📚</div>
+          <div class="offering-title">Lawable Academy</div>
+          <p class="offering-desc">Self-paced courses and live lectures taught by practising legal professionals. Learn at your own rhythm.</p>
+          <a href="#courses" class="offering-link">Browse courses →</a>
+        </div>
+        <div class="offering-card" data-tag="student professional">
+          <div class="offering-icon">🎙️</div>
+          <div class="offering-title">Monthly Webinars</div>
+          <p class="offering-desc">Register for expert-led webinars on cutting-edge legal topics — constitutional updates, corporate law shifts, and more.</p>
+          <a href="#" class="offering-link">See schedule →</a>
+        </div>
+        <div class="offering-card" data-tag="institution">
+          <div class="offering-icon">🖥️</div>
+          <div class="offering-title">Online Examination</div>
+          <p class="offering-desc">End-to-end exam infrastructure with AI proctoring — secure, scalable, and trusted by law colleges across Mumbai.</p>
+          <a href="#" class="offering-link">For institutions →</a>
+        </div>
+        <div class="offering-card" data-tag="student">
+          <div class="offering-icon">🤝</div>
+          <div class="offering-title">Internship Program</div>
+          <p class="offering-desc">Physical and virtual placements with one-on-one mentorship across diverse areas of legal practice.</p>
+          <a href="#internship" class="offering-link">Apply now →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ COURSES PREVIEW ═════════════════════════════════════ -->
+<section id="courses">
+  <div class="fade-up">
+    <div class="section-eyebrow">Course Catalog</div>
+    <h2 class="section-title">Start learning today</h2>
+    <p class="section-body">
+      Handpicked courses taught by legal practitioners. Filter by area or dive straight in.
+    </p>
+  </div>
+
+  <div class="courses-grid">
+    <div class="course-card fade-up delay-1">
+      <div class="course-thumb">
+        ⚖️
+        <span class="course-badge">Popular</span>
+      </div>
+      <div class="course-body">
+        <div class="course-title">Constitutional Law Fundamentals</div>
+        <div class="course-meta">
+          <span>📚 12 Modules</span>
+          <span>⏱ 8 hrs</span>
+          <span>⭐ 4.8</span>
+        </div>
+        <div class="course-footer">
+          <a href="#" class="course-enroll">Enroll →</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-card fade-up delay-2">
+      <div class="course-thumb" style="background:#E8F4FD;">
+        🏢
+        <span class="course-badge">New</span>
+      </div>
+      <div class="course-body">
+        <div class="course-title">Corporate Law & Governance</div>
+        <div class="course-meta">
+          <span>📚 9 Modules</span>
+          <span>⏱ 6 hrs</span>
+          <span>⭐ 4.7</span>
+        </div>
+        <div class="course-footer">
+          <a href="#" class="course-enroll">Enroll →</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-card fade-up delay-3">
+      <div class="course-thumb" style="background:#F0FDF4;">
+        📋
+        <span class="course-badge free">Free</span>
+      </div>
+      <div class="course-body">
+        <div class="course-title">Introduction to Indian Legal System</div>
+        <div class="course-meta">
+          <span>📚 5 Modules</span>
+          <span>⏱ 3 hrs</span>
+          <span>⭐ 4.9</span>
+        </div>
+        <div class="course-footer">
+          <a href="#" class="course-enroll">Start →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ABOUT ═══════════════════════════════════════════════ -->
+<section id="about">
+  <div class="fade-left">
+    <div class="section-eyebrow">About Lawable</div>
+    <h2 class="section-title">Built to make law<br>accessible to all</h2>
+    <p class="section-body">
+      We built Lawable with a single purpose: lower the barriers between curious minds and quality legal education.
+      Since launch, we've supported hundreds of students and professionals — and we are just getting started.
+    </p>
+    <a href="#internship" class="btn-primary" style="margin-top:2rem;">Join the community →</a>
+  </div>
+
+  <div class="about-right fade-right">
+    <div class="about-feature">
+      <div class="about-feature-icon">⚡</div>
+      <div>
+        <div class="about-feature-title">We always over-deliver</div>
+        <p class="about-feature-desc">You set the expectation — we exceed it. Every product is built to go beyond the brief.</p>
+      </div>
+    </div>
+    <div class="about-feature">
+      <div class="about-feature-icon">🏗️</div>
+      <div>
+        <div class="about-feature-title">Robust infrastructure</div>
+        <p class="about-feature-desc">Our exam platform handles thousands of concurrent students without breaking a sweat.</p>
+      </div>
+    </div>
+    <div class="about-feature">
+      <div class="about-feature-icon">🌐</div>
+      <div>
+        <div class="about-feature-title">Global partnerships</div>
+        <p class="about-feature-desc">We work with institutions across the globe to expand access and opportunity.</p>
+      </div>
+    </div>
+    <div class="about-feature">
+      <div class="about-feature-icon">🎯</div>
+      <div>
+        <div class="about-feature-title">Community first</div>
+        <p class="about-feature-desc">Beyond academics, we nurture a community of legally aware citizens shaping the future.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ TESTIMONIALS ════════════════════════════════════════ -->
+<section id="testimonials">
+  <div class="fade-up">
+    <div class="section-eyebrow">Testimonials</div>
+    <h2 class="section-title">Let them speak for us</h2>
+  </div>
+
+  <div class="testi-slider-wrap fade-up">
+    <div class="testi-slider" id="testiSlider">
+      <div class="testi-card">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-quote">"Lawable delivered highly appreciable support for our law examinations — smooth, effective, and technically excellent. Their professional approach was outstanding and we extend our best wishes for upcoming initiatives."</p>
+        <div class="testi-author">
+          <div class="testi-avatar">JD</div>
+          <div>
+            <div class="testi-name">Prof. Jaymangal Dhanraj</div>
+            <div class="testi-role">Incharge Principal, Dr. Ambedkar College of Law, Wadala</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-quote">"Conducting LL.B. exams online for the first time was daunting after 48 dedicated years in Legal Education. Partnering with Lawable made it a novel and pleasant experience for the college and students alike. Truly commendable."</p>
+        <div class="testi-author">
+          <div class="testi-avatar">SJ</div>
+          <div>
+            <div class="testi-name">Dr. Srividhya Jayakumar</div>
+            <div class="testi-role">Incharge Principal, VPM's TMC Law College, Thane</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">★★★★☆</div>
+        <p class="testi-quote">"The webinar series on Corporate Law was incredibly practical. The instructors connected every concept to real case law, which made the difference for my preparation. Highly recommend to every law student."</p>
+        <div class="testi-author">
+          <div class="testi-avatar">RP</div>
+          <div>
+            <div class="testi-name">Rohit Patil</div>
+            <div class="testi-role">LL.B. Student, Mumbai University</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="testi-controls">
+      <button class="testi-btn" id="testiPrev">←</button>
+      <button class="testi-btn" id="testiNext">→</button>
+      <div class="testi-dots" id="testiDots"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FAQ ══════════════════════════════════════════════════ -->
+<section id="faq">
+  <div class="fade-up">
+    <div class="section-eyebrow">FAQ</div>
+    <h2 class="section-title">Common questions</h2>
+  </div>
+
+  <div class="faq-list fade-up">
+    <div class="faq-item">
+      <button class="faq-q">
+        Is Lawable free to use?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a">Some introductory courses and resources are completely free. Premium courses, live webinars, and the internship program have nominal fees. We keep pricing affordable — legal education should not be a luxury.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q">
+        Who can join the Internship Program?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a">The internship program is open to law students at all levels — from first-year LL.B. students to final-year LL.M. candidates. Both physical (Mumbai-based) and virtual tracks are available.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q">
+        How does the AI-proctored exam system work?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a">Our platform uses computer-vision-based AI to monitor candidates during exams in real time. It detects suspicious behaviour, multiple faces, and unusual activity — all without manual invigilation. Institutions receive detailed reports post-exam.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q">
+        Can institutions partner with Lawable for exams?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a">Absolutely. We offer end-to-end white-label examination solutions for law colleges, bar associations, and legal training institutes. Contact us via the form in the footer to request a demo.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q">
+        Are certificates provided after course completion?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a">Yes — all paid courses include a digitally verifiable certificate of completion. Certificates from Lawable Academy are recognised by our partner institutions.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ TEAM ═════════════════════════════════════════════════ -->
+<section id="team">
+  <div class="fade-up">
+    <div class="section-eyebrow">The Team</div>
+    <h2 class="section-title">The people behind Lawable</h2>
+  </div>
+  <div class="team-grid">
+    <div class="team-card fade-up delay-1">
+      <div class="team-avatar">SJ</div>
+      <div class="team-name">Sudhakar Jadhav</div>
+      <div class="team-role">Co-Founder</div>
+      <a href="https://www.linkedin.com/in/sudhakar-jadhav-8a220433/" target="_blank" class="team-linkedin">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+        LinkedIn
+      </a>
+    </div>
+    <div class="team-card fade-up delay-2">
+      <div class="team-avatar">SM</div>
+      <div class="team-name">Shivam Maurya</div>
+      <div class="team-role">Co-Founder</div>
+      <a href="https://www.linkedin.com/in/slinkshivam/" target="_blank" class="team-linkedin">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+        LinkedIn
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ INTERNSHIP CTA ═══════════════════════════════════════ -->
+<section id="internship">
+  <div class="fade-up">
+    <div class="section-eyebrow">Internship Program</div>
+    <h2 class="section-title">Real-world legal experience — starting now</h2>
+    <p class="section-body">Apply for physical or virtual internships with one-on-one mentorship across a range of practice areas. Open to law students at all levels.</p>
+    <a href="https://lawable.in/index.php/internship-program/" class="btn-white" style="margin-top:2rem;">Apply for Internship →</a>
+  </div>
+</section>
+
+<!-- ═══ NEWSLETTER ═══════════════════════════════════════════ -->
+<section id="newsletter">
+  <div class="fade-up">
+    <div class="section-eyebrow">Newsletter</div>
+    <h2 class="section-title">Stay ahead of every update</h2>
+    <p class="section-body">Get the latest on exams, certifications, internships, and thought-provoking legal articles — straight to your inbox.</p>
+    <form class="newsletter-form" id="newsletterForm">
+      <input type="email" placeholder="your@email.com" required id="emailInput" autocomplete="email" />
+      <button type="submit">Subscribe</button>
+    </form>
+    <p class="subscribe-msg" id="subscribeMsg">✓ You're on the list — welcome aboard!</p>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ═══════════════════════════════════════════════ -->
+<footer>
+  <div class="footer-top">
+    <div class="footer-brand">
+      <span class="footer-logo">Law<span>able</span></span>
+      <p class="footer-tagline">Transforming legal education for students, professionals, and institutions across India.</p>
+      <div class="footer-social">
+        <a href="#" class="social-btn" title="Twitter">𝕏</a>
+        <a href="#" class="social-btn" title="Instagram">◎</a>
+        <a href="https://www.youtube.com/channel/UCAXMDEFhmZlKMfPs3hE6aNw" class="social-btn" title="YouTube" target="_blank">▶</a>
+      </div>
+    </div>
+
+    <div class="footer-col">
+      <h4>Platform</h4>
+      <ul>
+        <li><a href="#offerings">Offerings</a></li>
+        <li><a href="#courses">Courses</a></li>
+        <li><a href="#internship">Internship</a></li>
+        <li><a href="#">Webinars</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col">
+      <h4>Company</h4>
+      <ul>
+        <li><a href="#about">About</a></li>
+        <li><a href="#team">Team</a></li>
+        <li><a href="https://lawable.in/blog/">Blog</a></li>
+        <li><a href="#">Contact</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col">
+      <h4>Legal</h4>
+      <ul>
+        <li><a href="#">Privacy Policy</a></li>
+        <li><a href="#">Terms of Use</a></li>
+        <li><a href="#">Refund Policy</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <span>© 2026 Lawable · All rights reserved · Built by Seva Technology</span>
+    <span>Made with ⚖ in Mumbai, India</span>
+  </div>
+</footer>
+
+<!-- ═══ JAVASCRIPT ═══════════════════════════════════════════ -->
+<script>
+/* ── 1. Cursor Glow ────────────────────────────────────── */
+const glow = document.getElementById('cursorGlow');
+document.addEventListener('mousemove', e => {
+  glow.style.left = e.clientX + 'px';
+  glow.style.top  = e.clientY + 'px';
+});
+
+/* ── 2. Nav: scroll shadow + progress bar + back-to-top ── */
+const navbar    = document.getElementById('navbar');
+const progressBar = document.getElementById('progressBar');
+const backTop   = document.getElementById('backTop');
+
+window.addEventListener('scroll', () => {
+  const scrolled = window.scrollY;
+  const total    = document.documentElement.scrollHeight - window.innerHeight;
+  const pct      = (scrolled / total) * 100;
+
+  progressBar.style.width = pct + '%';
+  navbar.classList.toggle('scrolled', scrolled > 40);
+  backTop.classList.toggle('visible', scrolled > 400);
+});
+
+/* ── 3. Mobile drawer ──────────────────────────────────── */
+const hamburger = document.getElementById('hamburger');
+const drawer    = document.getElementById('drawer');
+hamburger.addEventListener('click', () => {
+  hamburger.classList.toggle('open');
+  drawer.classList.toggle('open');
+});
+function closeDrawer() {
+  hamburger.classList.remove('open');
+  drawer.classList.remove('open');
+}
+
+/* ── 4. Scroll animations ─────────────────────────────── */
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) e.target.classList.add('visible');
+  });
+}, { threshold: 0.10 });
+document.querySelectorAll('.fade-up, .fade-left, .fade-right')
+        .forEach(el => observer.observe(el));
+
+/* ── 5. Animated counter ───────────────────────────────── */
+let countersStarted = false;
+const counterObs = new IntersectionObserver((entries) => {
+  if (countersStarted) return;
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      countersStarted = true;
+      document.querySelectorAll('.counter').forEach(el => {
+        const target = +el.dataset.target;
+        const dur = 1400;
+        const step = 16;
+        const inc = target / (dur / step);
+        let cur = 0;
+        const timer = setInterval(() => {
+          cur += inc;
+          if (cur >= target) { cur = target; clearInterval(timer); }
+          el.textContent = Math.floor(cur);
+        }, step);
+      });
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelector('.hero-stats') &&
+  counterObs.observe(document.querySelector('.hero-stats'));
+
+/* ── 6. Offering tabs and carousel ───────────────────── */
+const offeringsViewport = document.querySelector('.offerings-viewport');
+const offeringsTrack = document.querySelector('.offerings-track');
+const offeringCards = Array.from(document.querySelectorAll('.offering-card'));
+const offeringPrev = document.querySelector('.offerings-prev');
+const offeringNext = document.querySelector('.offerings-next');
+
+function filterOfferings(filter) {
+  offeringCards.forEach(card => {
+    const tag = card.dataset.tag || '';
+    const matches = filter === 'all' || tag.includes(filter);
+    card.classList.toggle('is-hidden', !matches);
+  });
+
+  const visibleCards = offeringCards.filter(card => !card.classList.contains('is-hidden'));
+  if (visibleCards.length) {
+    offeringsTrack.scrollLeft = 0;
+  }
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterOfferings(btn.dataset.filter);
+  });
+});
+
+function scrollOfferings(direction) {
+  const cardWidth = offeringCards[0] ? offeringCards[0].getBoundingClientRect().width + 20 : 320;
+  offeringsViewport.scrollBy({ left: direction * cardWidth, behavior: 'smooth' });
+}
+
+offeringPrev?.addEventListener('click', () => scrollOfferings(-1));
+offeringNext?.addEventListener('click', () => scrollOfferings(1));
+
+let dragStartX = 0;
+let isDragging = false;
+
+offeringsViewport?.addEventListener('pointerdown', (e) => {
+  dragStartX = e.pageX;
+  isDragging = true;
+  offeringsViewport.setPointerCapture(e.pointerId);
+});
+
+offeringsViewport?.addEventListener('pointermove', (e) => {
+  if (!isDragging) return;
+  const deltaX = e.pageX - dragStartX;
+  offeringsViewport.scrollLeft -= deltaX / 2;
+  dragStartX = e.pageX;
+});
+
+offeringsViewport?.addEventListener('pointerup', () => {
+  isDragging = false;
+});
+
+offeringsViewport?.addEventListener('pointerleave', () => {
+  isDragging = false;
+});
+
+filterOfferings('all');
+
+/* ── 7. Testimonial slider ─────────────────────────────── */
+const slider = document.getElementById('testiSlider');
+const dotsWrap = document.getElementById('testiDots');
+const cards = slider.querySelectorAll('.testi-card');
+let current = 0;
+
+// Build dots
+cards.forEach((_, i) => {
+  const d = document.createElement('button');
+  d.className = 'testi-dot' + (i === 0 ? ' active' : '');
+  d.setAttribute('aria-label', 'Go to slide ' + (i+1));
+  d.addEventListener('click', () => goTo(i));
+  dotsWrap.appendChild(d);
+});
+
+function goTo(idx) {
+  current = (idx + cards.length) % cards.length;
+  // On desktop show 2 at once, on mobile 1
+  const perView = window.innerWidth > 900 ? 2 : 1;
+  const gap     = window.innerWidth > 900 ? 1.5 : 0;
+  const cardW   = slider.parentElement.offsetWidth;
+  const step    = cardW / perView;
+  const maxIdx  = cards.length - perView;
+  const clampedIdx = Math.min(current, maxIdx);
+  slider.style.transform = `translateX(-${clampedIdx * step + clampedIdx * (gap * 16 / perView)}px)`;
+  document.querySelectorAll('.testi-dot').forEach((d, i) => d.classList.toggle('active', i === current));
+}
+
+document.getElementById('testiPrev').addEventListener('click', () => goTo(current - 1));
+document.getElementById('testiNext').addEventListener('click', () => goTo(current + 1));
+
+// Auto-advance
+setInterval(() => goTo(current + 1), 5000);
+
+/* ── 8. FAQ accordion ──────────────────────────────────── */
+document.querySelectorAll('.faq-q').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const item = btn.parentElement;
+    const isOpen = item.classList.contains('open');
+    // close all
+    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  });
+});
+
+/* ── 9. Newsletter ─────────────────────────────────────── */
+document.getElementById('newsletterForm').addEventListener('submit', e => {
+  e.preventDefault();
+  document.getElementById('emailInput').value = '';
+  const msg = document.getElementById('subscribeMsg');
+  msg.classList.add('show');
+  setTimeout(() => msg.classList.remove('show'), 4000);
+});
+
+/* ── 10. Parallax hero bg ─────────────────────────────── */
+window.addEventListener('scroll', () => {
+  const heroBg = document.querySelector('.hero-bg');
+  if (heroBg) {
+    heroBg.style.transform = `translateY(${window.scrollY * 0.25}px)`;
+  }
+});
+</script>
+</body>
+</html>
