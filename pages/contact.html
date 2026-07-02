@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact — Lawable</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/css/lawable.css" />
+</head>
+<body>
+<div class="cursor-glow" id="cursorGlow"></div>
+<div class="progress-bar" id="progressBar"></div>
+<button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<nav id="navbar">
+  <a href="../index.html" class="nav-logo">Law<span>able</span></a>
+  <ul class="nav-links">
+    <li><a href="offerings.html">Offerings</a></li>
+    <li><a href="courses.html">Courses</a></li>
+    <li><a href="about.html">About</a></li>
+    <li><a href="contact.html" class="active">Contact</a></li>
+    <li><a href="login.php" class="nav-cta">Log in →</a></li>
+  </ul>
+  <button class="nav-hamburger" id="hamburger" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<nav class="nav-drawer" id="drawer">
+  <a href="offerings.html" onclick="closeDrawer()">Offerings</a>
+  <a href="courses.html" onclick="closeDrawer()">Courses</a>
+  <a href="about.html" onclick="closeDrawer()">About</a>
+  <a href="contact.html" onclick="closeDrawer()">Contact</a>
+  <a href="login.php" class="drawer-cta">Log in →</a>
+</nav>
+
+<section class="hero" style="min-height:70vh;">
+  <div class="hero-bg"></div>
+  <div class="hero-eyebrow">Contact</div>
+  <h1>Let’s talk about your next legal learning journey</h1>
+  <p class="hero-sub">Reach out for partnerships, admissions, or general enquiries.</p>
+</section>
+
+<section>
+  <div class="about-right fade-up">
+    <div class="about-feature">
+      <div class="about-feature-icon">📧</div>
+      <div>
+        <div class="about-feature-title">Email</div>
+        <p class="about-feature-desc">hello@lawable.in</p>
+      </div>
+    </div>
+    <div class="about-feature">
+      <div class="about-feature-icon">📍</div>
+      <div>
+        <div class="about-feature-title">Location</div>
+        <p class="about-feature-desc">Mumbai, India</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="../assets/js/script.js"></script>
+</body>
+</html>

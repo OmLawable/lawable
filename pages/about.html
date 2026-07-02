@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About — Lawable</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/css/lawable.css" />
+</head>
+<body>
+<div class="cursor-glow" id="cursorGlow"></div>
+<div class="progress-bar" id="progressBar"></div>
+<button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<nav id="navbar">
+  <a href="../index.html" class="nav-logo">Law<span>able</span></a>
+  <ul class="nav-links">
+    <li><a href="offerings.html">Offerings</a></li>
+    <li><a href="courses.html">Courses</a></li>
+    <li><a href="about.html" class="active">About</a></li>
+    <li><a href="contact.html">Contact</a></li>
+    <li><a href="login.php" class="nav-cta">Log in →</a></li>
+  </ul>
+  <button class="nav-hamburger" id="hamburger" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<nav class="nav-drawer" id="drawer">
+  <a href="offerings.html" onclick="closeDrawer()">Offerings</a>
+  <a href="courses.html" onclick="closeDrawer()">Courses</a>
+  <a href="about.html" onclick="closeDrawer()">About</a>
+  <a href="contact.html" onclick="closeDrawer()">Contact</a>
+  <a href="login.php" class="drawer-cta">Log in →</a>
+</nav>
+
+<section class="hero" style="min-height:70vh;">
+  <div class="hero-bg"></div>
+  <div class="hero-eyebrow">About Lawable</div>
+  <h1>Transforming legal education through clarity and access</h1>
+  <p class="hero-sub">We believe high-quality legal learning should be practical, modern, and available to everyone.</p>
+</section>
+
+<section id="about">
+  <div class="fade-left">
+    <h2 class="section-title">Built to make law accessible to all</h2>
+    <p class="section-body">Lawable combines expert instruction, flexible learning formats, and strong student support to make law education more approachable and effective.</p>
+  </div>
+  <div class="about-right fade-right">
+    <div class="about-feature">
+      <div class="about-feature-icon">🌐</div>
+      <div>
+        <div class="about-feature-title">Accessible learning</div>
+        <p class="about-feature-desc">Designed for students, professionals, and institutions across India and beyond.</p>
+      </div>
+    </div>
+    <div class="about-feature">
+      <div class="about-feature-icon">🎯</div>
+      <div>
+        <div class="about-feature-title">Community-first approach</div>
+        <p class="about-feature-desc">We focus on clear outcomes, support, and practical understanding rather than rote memorization.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="../assets/js/script.js"></script>
+</body>
+</html>
