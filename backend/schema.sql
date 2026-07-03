@@ -59,6 +59,25 @@ CREATE TABLE IF NOT EXISTS organizations (
     INDEX idx_org_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ────────── ORGANIZATION PROFILES ──────────
+CREATE TABLE IF NOT EXISTS organization_profiles (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    organization_id INT UNSIGNED NOT NULL UNIQUE,
+    display_name VARCHAR(255) DEFAULT NULL,
+    official_email VARCHAR(255) DEFAULT NULL,
+    organization_type ENUM('Law Firm', 'Educational Institution', 'NGO', 'Corporate Legal Dept', 'Ed-tech', 'Government Body') DEFAULT NULL,
+    tagline VARCHAR(255) DEFAULT NULL,
+    about_description TEXT DEFAULT NULL,
+    year_established INT DEFAULT NULL,
+    website_url VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_org_profiles_org
+        FOREIGN KEY (organization_id) REFERENCES organizations(id)
+        ON DELETE CASCADE,
+    INDEX idx_org_profiles_org_id (organization_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ────────── ADMINS ──────────
 CREATE TABLE IF NOT EXISTS admins (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
