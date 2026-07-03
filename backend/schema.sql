@@ -22,6 +22,20 @@ CREATE TABLE IF NOT EXISTS students (
     INDEX idx_student_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS student_profiles (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    student_id INT UNSIGNED NOT NULL UNIQUE,
+    city VARCHAR(120) DEFAULT NULL,
+    bio TEXT DEFAULT NULL,
+    date_of_birth DATE DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_student_profiles_student
+        FOREIGN KEY (student_id) REFERENCES students(id)
+        ON DELETE CASCADE,
+    INDEX idx_student_profiles_student_id (student_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ────────── ORGANIZATIONS ──────────
 CREATE TABLE IF NOT EXISTS organizations (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

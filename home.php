@@ -29,6 +29,11 @@ $user = current_user();
     <li><a href="pages/courses.html">Courses</a></li>
     <li><a href="pages/about.html">About</a></li>
     <li><a href="pages/contact.html">Contact</a></li>
+    <li class="nav-profile-item">
+      <a href="edit-profile.php" class="nav-profile" aria-label="Edit profile">
+        <span aria-hidden="true">👤</span>
+      </a>
+    </li>
     <li><a href="backend/logout.php" class="nav-cta">Log out</a></li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
@@ -41,6 +46,7 @@ $user = current_user();
   <a href="pages/courses.html" onclick="closeDrawer()">Courses</a>
   <a href="pages/about.html" onclick="closeDrawer()">About</a>
   <a href="pages/contact.html" onclick="closeDrawer()">Contact</a>
+  <a href="edit-profile.php" onclick="closeDrawer()">Edit profile</a>
   <a href="backend/logout.php" class="drawer-cta">Log out</a>
 </nav>
 
