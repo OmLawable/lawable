@@ -16,6 +16,9 @@
   --cream:    #FCF8F1;
   --white:    #FFFFFF;
   --page-bg:  #f6eeff;
+  --nav-bg:   rgba(253,250,245,0.92);
+  --hero-bg-end: #f9f3ff;
+  --card-bg:  rgba(255,255,255,0.9);
   --border:   #E5E0D8;
   --shadow:   0 4px 24px rgba(13,17,23,0.08);
   --shadow-lg:0 16px 48px rgba(13,17,23,0.14);
@@ -30,6 +33,24 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+body.dark-theme {
+  --ink:      #F8FAFC;
+  --ink-mid:  #CBD5E1;
+  --ink-soft: #94A3B8;
+  --gold:     #D8A84F;
+  --gold-dk:  #F0C56D;
+  --gold-lt:  #3A3022;
+  --cream:    #111827;
+  --white:    #1E293B;
+  --page-bg:  #0F172A;
+  --nav-bg:   rgba(15,23,42,0.92);
+  --hero-bg-end: #182235;
+  --card-bg:  rgba(30,41,59,0.9);
+  --border:   #334155;
+  --shadow:   0 4px 24px rgba(0,0,0,0.28);
+  --shadow-lg:0 16px 48px rgba(0,0,0,0.38);
+}
+
 html { scroll-behavior: smooth; }
 
 body {
@@ -38,6 +59,7 @@ body {
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  transition: background .25s, color .25s;
 }
 
 /* ─── CURSOR GLOW ───────────────────────────────────────── */
@@ -65,11 +87,11 @@ nav {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 5%;
   height: var(--nav-h);
-  background: rgba(253,250,245,0.92);
+  background: var(--nav-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid transparent;
-  transition: border-color .3s, box-shadow .3s;
+  transition: background .25s, border-color .3s, box-shadow .3s;
 }
 nav.scrolled {
   border-bottom-color: var(--border);
@@ -122,6 +144,44 @@ nav.scrolled {
   transform: translateY(-1px) !important;
 }
 
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 34px;
+  padding: 0.25rem 0.7rem 0.25rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--ink-mid);
+  font-family: var(--body);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .2s, border-color .2s, color .2s, transform .15s;
+}
+.theme-toggle:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+  transform: translateY(-1px);
+}
+.theme-toggle-icon {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--white);
+  font-size: 0.7rem;
+  line-height: 1;
+}
+.theme-toggle-text {
+  line-height: 1;
+  white-space: nowrap;
+}
+
 /* Mobile hamburger */
 .nav-hamburger {
   display: none;
@@ -141,13 +201,14 @@ nav.scrolled {
 .nav-drawer {
   display: none;
   position: fixed; top: var(--nav-h); left: 0; right: 0;
+  height: auto;
   background: var(--cream);
   border-bottom: 1px solid var(--border);
   padding: 1.5rem 5% 2rem;
   z-index: 999;
   transform: translateY(-8px); opacity: 0;
   transition: transform .3s var(--ease-out), opacity .3s;
-  flex-direction: column; gap: 0;
+  flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 0;
 }
 .nav-drawer.open { transform: translateY(0); opacity: 1; }
 .nav-drawer a {
@@ -167,6 +228,13 @@ nav.scrolled {
   transition: background .2s;
 }
 .nav-drawer .drawer-cta:hover { background: var(--gold); }
+.drawer-theme-toggle {
+  width: 100%;
+  justify-content: flex-start;
+  margin-top: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+}
 
 /* ─── BUTTONS ───────────────────────────────────────────── */
 .btn-primary {
@@ -551,7 +619,7 @@ section { padding: 100px 5%; position: relative; }
   display: flex; flex-direction: column; justify-content: center;
   padding: calc(var(--nav-h) + 60px) 5% 80px;
   position: relative; overflow: hidden;
-  background: linear-gradient(135deg, var(--page-bg) 0%, #f9f3ff 100%);
+  background: linear-gradient(135deg, var(--page-bg) 0%, var(--hero-bg-end) 100%);
 }
 
 .landing-links {
@@ -563,7 +631,7 @@ section { padding: 100px 5%; position: relative; }
   position: relative; z-index: 2;
 }
 .landing-card {
-  background: rgba(255,255,255,0.9);
+  background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
