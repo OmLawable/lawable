@@ -75,8 +75,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user']['organization_name'] = $user['organization_name'] ?? '';
         }
 
-        // Determine redirect based on role
-        $redirectUrl = 'home.php';
+        // Role-based redirect
+        $redirectUrl = match ($role) {
+            'admin' => 'pages/admin-dashboard.php',
+            'organization' => 'home.php',
+            default => 'home.php',
+        };
 
         if ($isAjax) {
             json_response([

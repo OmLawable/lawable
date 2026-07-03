@@ -5,6 +5,7 @@ $user = current_user();
 $isLoggedIn = $user !== null;
 $profileLink = '../edit-profile.php';
 $profileIcon = '👤';
+$isAdmin = $isLoggedIn && ($user['role'] ?? '') === 'admin';
 if ($isLoggedIn && ($user['role'] ?? 'user') === 'organization') {
     $profileLink = '../edit-org-profile.php';
     $profileIcon = '🏢';
@@ -25,18 +26,20 @@ if ($isLoggedIn && ($user['role'] ?? 'user') === 'organization') {
 <button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
 <nav id="navbar">
-  <a href="<?= $isLoggedIn ? '../home.php' : '../index.html' ?>" class="nav-logo">Law<span>able</span></a>
+  <a href="<?= $isAdmin ? '../pages/admin-dashboard.php' : ($isLoggedIn ? '../home.php' : '../index.html') ?>" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
     <li><a href="offerings.php">Offerings</a></li>
     <li><a href="courses.php">Courses</a></li>
     <li><a href="about.php" class="active">About</a></li>
     <li><a href="contact.php">Contact</a></li>
     <?php if ($isLoggedIn): ?>
+    <?php if (!$isAdmin): ?>
     <li class="nav-profile-item">
       <a href="<?= $profileLink ?>" class="nav-profile" aria-label="Edit profile">
         <span aria-hidden="true"><?= $profileIcon ?></span>
       </a>
     </li>
+    <?php endif; ?>
     <li><a href="../backend/logout.php" class="nav-cta">Log out</a></li>
     <?php else: ?>
     <li><a href="login.php" class="nav-cta">Log in →</a></li>
@@ -53,7 +56,9 @@ if ($isLoggedIn && ($user['role'] ?? 'user') === 'organization') {
   <a href="about.php" onclick="closeDrawer()">About</a>
   <a href="contact.php" onclick="closeDrawer()">Contact</a>
   <?php if ($isLoggedIn): ?>
+  <?php if (!$isAdmin): ?>
   <a href="<?= $profileLink ?>" onclick="closeDrawer()">Edit profile</a>
+  <?php endif; ?>
   <a href="../backend/logout.php" class="drawer-cta">Log out</a>
   <?php else: ?>
   <a href="login.php" class="drawer-cta">Log in →</a>
