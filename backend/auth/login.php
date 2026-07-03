@@ -75,16 +75,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user']['organization_name'] = $user['organization_name'] ?? '';
         }
 
+        // Determine redirect based on role
+        $redirectUrl = 'home.php';
+
         if ($isAjax) {
             json_response([
                 'success' => true,
                 'message' => 'Login successful.',
-                'redirect' => '/lawable/home.php',
+                'redirect' => '/lawable/' . $redirectUrl,
             ]);
         }
 
         $success = 'Login successful.';
-        redirect('home.php');
+        redirect($redirectUrl);
     } catch (RuntimeException $exception) {
         $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
         if ($isAjax) {
@@ -96,9 +99,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 if ($isAjax) {
-    if ($success) {
-        json_response(['success' => true, 'message' => $success, 'redirect' => '/lawable/home.php']);
-    }
+        if ($success) {
+            json_response(['success' => true, 'message' => $success, 'redirect' => '/lawable/home.php']);
+        }
     json_response(['success' => false, 'message' => $errors[0] ?? 'Login failed.'], 400);
 }
 ?>
