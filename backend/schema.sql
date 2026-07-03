@@ -28,6 +28,13 @@ CREATE TABLE IF NOT EXISTS student_profiles (
     city VARCHAR(120) DEFAULT NULL,
     bio TEXT DEFAULT NULL,
     date_of_birth DATE DEFAULT NULL,
+    institution VARCHAR(120) DEFAULT NULL,
+    course VARCHAR(120) DEFAULT NULL,
+    year_semester VARCHAR(120) DEFAULT NULL,
+    areas_of_interest TEXT DEFAULT NULL,
+    resume_file VARCHAR(255) DEFAULT NULL,
+    linkedin_url VARCHAR(255) DEFAULT NULL,
+    skills TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_student_profiles_student

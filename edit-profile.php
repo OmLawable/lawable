@@ -20,7 +20,14 @@ function fetch_student_profile(PDO $pdo, int $studentId): array
             s.phone,
             sp.city,
             sp.bio,
-            sp.date_of_birth
+            sp.date_of_birth,
+            sp.institution,
+            sp.course,
+            sp.year_semester,
+            sp.areas_of_interest,
+            sp.resume_file,
+            sp.linkedin_url,
+            sp.skills
         FROM students s
         LEFT JOIN student_profiles sp ON sp.student_id = s.id
         WHERE s.id = :student_id
@@ -48,6 +55,13 @@ try {
         'city' => '',
         'bio' => '',
         'date_of_birth' => '',
+        'institution' => '',
+        'course' => '',
+        'year_semester' => '',
+        'areas_of_interest' => '',
+        'resume_file' => '',
+        'linkedin_url' => '',
+        'skills' => '',
     ];
     $errors[] = 'Please create the student_profiles table before editing profiles.';
 }
@@ -61,6 +75,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $city = trim((string) ($_POST['city'] ?? ''));
         $bio = trim((string) ($_POST['bio'] ?? ''));
         $dateOfBirth = trim((string) ($_POST['date_of_birth'] ?? ''));
+        $institution = trim((string) ($_POST['institution'] ?? ''));
+        $course = trim((string) ($_POST['course'] ?? ''));
+        $yearSemester = trim((string) ($_POST['year_semester'] ?? ''));
+        $areasOfInterest = trim((string) ($_POST['areas_of_interest'] ?? ''));
+        $linkedinUrl = trim((string) ($_POST['linkedin_url'] ?? ''));
+        $skills = trim((string) ($_POST['skills'] ?? ''));
+        
+        $resumeFile = $profile['resume_file'] ?? '';
+        
+        // Handle resume file upload
+        if (isset($_FILES['resume']) && $_FILES['resume']['error'] === UPLOAD_ERR_OK) {
+            $resumeUpload = $_FILES['resume'];
+            $maxFileSize = 500 * 1024; // 500KB
+            
+            if ($resumeUpload['size'] > $maxFileSize) {
+                throw new RuntimeException('Resume file size must not exceed 500KB.');
+            }
+            
+            $allowedMimes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+            $fileMime = mime_content_type($resumeUpload['tmp_name']);
+            if (!in_array($fileMime, $allowedMimes)) {
+                throw new RuntimeException('Resume must be a PDF or Word document (DOC, DOCX).');
+            }
+            
+            $uploadDir = __DIR__ . '/uploads/resumes/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            
+            $studentId = (int) $user['id'];
+            $fileExt = pathinfo($resumeUpload['name'], PATHINFO_EXTENSION);
+            $newFileName = 'resume_' . $studentId . '_' . time() . '.' . $fileExt;
+            $filePath = $uploadDir . $newFileName;
+            
+            if (!move_uploaded_file($resumeUpload['tmp_name'], $filePath)) {
+                throw new RuntimeException('Failed to upload resume file.');
+            }
+            
+            // Delete old resume file if it exists
+            if ($resumeFile !== '' && file_exists($uploadDir . $resumeFile)) {
+                unlink($uploadDir . $resumeFile);
+            }
+            
+            $resumeFile = $newFileName;
+        }
 
         if ($name === '' || strlen($name) < 2) {
             throw new RuntimeException('Full name must be at least 2 characters.');
@@ -86,6 +145,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new RuntimeException('Please enter a valid date of birth (YYYY-MM-DD).');
         }
 
+        foreach ([
+            'Institution/College name' => $institution,
+            'Course/Degree' => $course,
+            'Year/Semester' => $yearSemester,
+            'Areas of Interest' => $areasOfInterest,
+            'LinkedIn URL' => $linkedinUrl,
+        ] as $label => $value) {
+            if (strlen($value) > 255) {
+                throw new RuntimeException($label . ' must be 255 characters or fewer.');
+            }
+        }
+
+        if (strlen($skills) > 1000) {
+            throw new RuntimeException('Skills must be 1000 characters or fewer.');
+        }
+
+        if ($linkedinUrl !== '' && !filter_var($linkedinUrl, FILTER_VALIDATE_URL)) {
+            throw new RuntimeException('Please enter a valid LinkedIn URL.');
+        }
+
         $pdo->beginTransaction();
 
         $stmt = $pdo->prepare('UPDATE students SET name = :name, phone = :phone WHERE id = :student_id');
@@ -97,19 +176,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $stmt = $pdo->prepare(
             'INSERT INTO student_profiles
-                (student_id, city, bio, date_of_birth)
+                (student_id, city, bio, date_of_birth, institution, course, year_semester, areas_of_interest, linkedin_url, skills, resume_file)
             VALUES
-                (:student_id, :city, :bio, :date_of_birth)
+                (:student_id, :city, :bio, :date_of_birth, :institution, :course, :year_semester, :areas_of_interest, :linkedin_url, :skills, :resume_file)
             ON DUPLICATE KEY UPDATE
                 city = VALUES(city),
                 bio = VALUES(bio),
-                date_of_birth = VALUES(date_of_birth)'
+                date_of_birth = VALUES(date_of_birth),
+                institution = VALUES(institution),
+                course = VALUES(course),
+                year_semester = VALUES(year_semester),
+                areas_of_interest = VALUES(areas_of_interest),
+                linkedin_url = VALUES(linkedin_url),
+                skills = VALUES(skills),
+                resume_file = VALUES(resume_file)'
         );
         $stmt->execute([
             ':student_id' => (int) $user['id'],
             ':city' => $city !== '' ? $city : null,
             ':bio' => $bio !== '' ? $bio : null,
             ':date_of_birth' => $dateOfBirth !== '' ? $dateOfBirth : null,
+            ':institution' => $institution !== '' ? $institution : null,
+            ':course' => $course !== '' ? $course : null,
+            ':year_semester' => $yearSemester !== '' ? $yearSemester : null,
+            ':areas_of_interest' => $areasOfInterest !== '' ? $areasOfInterest : null,
+            ':linkedin_url' => $linkedinUrl !== '' ? $linkedinUrl : null,
+            ':skills' => $skills !== '' ? $skills : null,
+            ':resume_file' => $resumeFile !== '' ? $resumeFile : null,
         ]);
 
         $pdo->commit();
@@ -259,6 +352,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="profile-field profile-field-full">
               <label for="bio">Bio</label>
               <textarea id="bio" name="bio" maxlength="1000" rows="5"><?= e($profile['bio'] ?? '') ?></textarea>
+            </div>
+          </div>
+
+          <div class="profile-section-divider"></div>
+
+          <h2 class="profile-section-title">Professional Information</h2>
+
+          <div class="profile-form-grid">
+            <div class="profile-field">
+              <label for="institution">Institution/College Name</label>
+              <input id="institution" name="institution" type="text" maxlength="120" value="<?= e($profile['institution'] ?? '') ?>" />
+            </div>
+
+            <div class="profile-field">
+              <label for="course">Course/Degree</label>
+              <input id="course" name="course" type="text" placeholder="e.g., LLB, BA-LLB, LLM" maxlength="120" value="<?= e($profile['course'] ?? '') ?>" />
+            </div>
+
+            <div class="profile-field">
+              <label for="year_semester">Year/Semester of Study</label>
+              <input id="year_semester" name="year_semester" type="text" maxlength="120" value="<?= e($profile['year_semester'] ?? '') ?>" />
+            </div>
+
+            <div class="profile-field">
+              <label for="linkedin_url">LinkedIn URL</label>
+              <input id="linkedin_url" name="linkedin_url" type="url" maxlength="255" value="<?= e($profile['linkedin_url'] ?? '') ?>" />
+            </div>
+
+            <div class="profile-field profile-field-full">
+              <label for="areas_of_interest">Areas of Interest</label>
+              <textarea id="areas_of_interest" name="areas_of_interest" maxlength="1000" rows="4" placeholder="e.g., Corporate Law, Intellectual Property, Human Rights"><?= e($profile['areas_of_interest'] ?? '') ?></textarea>
+            </div>
+
+            <div class="profile-field profile-field-full">
+              <label for="skills">Skills</label>
+              <textarea id="skills" name="skills" maxlength="1000" rows="4" placeholder="e.g., Legal Research, Contract Drafting, Litigation, Legal Writing"><?= e($profile['skills'] ?? '') ?></textarea>
+            </div>
+
+            <div class="profile-field profile-field-full">
+              <label for="resume">Resume Upload (PDF or Word)</label>
+              <div class="file-upload-wrapper">
+                <input id="resume" name="resume" type="file" accept=".pdf,.doc,.docx" />
+                <span class="file-upload-hint">Max size: 500KB (PDF, DOC, DOCX)</span>
+                <?php if (!empty($profile['resume_file'])): ?>
+                  <div class="file-uploaded">
+                    <span class="file-name"><?= e($profile['resume_file']) ?></span>
+                    <a href="uploads/resumes/<?= e($profile['resume_file']) ?>" target="_blank" class="file-download">View</a>
+                  </div>
+                <?php endif; ?>
+              </div>
             </div>
           </div>
 
