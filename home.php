@@ -25,10 +25,10 @@ $user = current_user();
 <nav id="navbar">
   <a href="home.php" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
-    <li><a href="pages/offerings.html">Offerings</a></li>
-    <li><a href="pages/courses.html">Courses</a></li>
-    <li><a href="pages/about.html">About</a></li>
-    <li><a href="pages/contact.html">Contact</a></li>
+    <li><a href="pages/offerings.php">Offerings</a></li>
+    <li><a href="pages/courses.php">Courses</a></li>
+    <li><a href="pages/about.php">About</a></li>
+    <li><a href="pages/contact.php">Contact</a></li>
     <li class="nav-profile-item">
       <a href="<?= ($user['role'] ?? 'user') === 'organization' ? 'edit-org-profile.php' : 'edit-profile.php' ?>" class="nav-profile" aria-label="Edit profile">
         <span aria-hidden="true"><?= ($user['role'] ?? 'user') === 'organization' ? '🏢' : '👤' ?></span>
@@ -42,10 +42,10 @@ $user = current_user();
 </nav>
 
 <nav class="nav-drawer" id="drawer">
-  <a href="pages/offerings.html" onclick="closeDrawer()">Offerings</a>
-  <a href="pages/courses.html" onclick="closeDrawer()">Courses</a>
-  <a href="pages/about.html" onclick="closeDrawer()">About</a>
-  <a href="pages/contact.html" onclick="closeDrawer()">Contact</a>
+  <a href="pages/offerings.php" onclick="closeDrawer()">Offerings</a>
+  <a href="pages/courses.php" onclick="closeDrawer()">Courses</a>
+  <a href="pages/about.php" onclick="closeDrawer()">About</a>
+  <a href="pages/contact.php" onclick="closeDrawer()">Contact</a>
   <a href="<?= ($user['role'] ?? 'user') === 'organization' ? 'edit-org-profile.php' : 'edit-profile.php' ?>" onclick="closeDrawer()">Edit profile</a>
   <a href="backend/logout.php" class="drawer-cta">Log out</a>
 </nav>
@@ -65,8 +65,8 @@ $user = current_user();
     A modern learning experience for students, professionals, and institutions.
   </p>
   <div class="hero-actions">
-    <a href="pages/courses.html" class="btn-primary">Explore Courses →</a>
-    <a href="pages/offerings.html" class="btn-ghost">See Offerings</a>
+    <a href="pages/courses.php" class="btn-primary">Explore Courses →</a>
+    <a href="pages/offerings.php" class="btn-ghost">See Offerings</a>
   </div>
 </section>
 
@@ -74,22 +74,22 @@ $user = current_user();
   <div class="landing-card fade-up">
     <h3>Offerings</h3>
     <p>Discover the programs and services built for different learning needs.</p>
-    <a href="pages/offerings.html">View offerings →</a>
+    <a href="pages/offerings.php">View offerings →</a>
   </div>
   <div class="landing-card fade-up delay-1">
     <h3>Courses</h3>
     <p>Browse practical, expert-led courses for beginners and advanced learners.</p>
-    <a href="pages/courses.html">Explore courses →</a>
+    <a href="pages/courses.php">Explore courses →</a>
   </div>
   <div class="landing-card fade-up delay-2">
     <h3>About</h3>
     <p>Learn more about Lawable’s mission and approach to legal education.</p>
-    <a href="pages/about.html">Read about us →</a>
+    <a href="pages/about.php">Read about us →</a>
   </div>
   <div class="landing-card fade-up delay-3">
     <h3>Contact</h3>
     <p>Get in touch for admissions, partnerships, or general enquiries.</p>
-    <a href="pages/contact.html">Contact us →</a>
+    <a href="pages/contact.php">Contact us →</a>
   </div>
 </section>
 
