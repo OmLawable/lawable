@@ -23,17 +23,19 @@ $user = current_user();
 <button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
 <nav id="navbar">
-  <a href="home.php" class="nav-logo">Law<span>able</span></a>
+  <a href="<?= ($user['role'] ?? '') === 'admin' ? 'pages/admin-dashboard.php' : 'home.php' ?>" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
     <li><a href="pages/offerings.php">Offerings</a></li>
     <li><a href="pages/courses.php">Courses</a></li>
     <li><a href="pages/about.php">About</a></li>
     <li><a href="pages/contact.php">Contact</a></li>
+    <?php if (($user['role'] ?? '') !== 'admin'): ?>
     <li class="nav-profile-item">
       <a href="<?= ($user['role'] ?? 'user') === 'organization' ? 'edit-org-profile.php' : 'edit-profile.php' ?>" class="nav-profile" aria-label="Edit profile">
         <span aria-hidden="true"><?= ($user['role'] ?? 'user') === 'organization' ? '🏢' : '👤' ?></span>
       </a>
     </li>
+    <?php endif; ?>
     <li><a href="backend/logout.php" class="nav-cta">Log out</a></li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
@@ -46,7 +48,9 @@ $user = current_user();
   <a href="pages/courses.php" onclick="closeDrawer()">Courses</a>
   <a href="pages/about.php" onclick="closeDrawer()">About</a>
   <a href="pages/contact.php" onclick="closeDrawer()">Contact</a>
+  <?php if (($user['role'] ?? '') !== 'admin'): ?>
   <a href="<?= ($user['role'] ?? 'user') === 'organization' ? 'edit-org-profile.php' : 'edit-profile.php' ?>" onclick="closeDrawer()">Edit profile</a>
+  <?php endif; ?>
   <a href="backend/logout.php" class="drawer-cta">Log out</a>
 </nav>
 
