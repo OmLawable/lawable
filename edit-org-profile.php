@@ -216,10 +216,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <nav id="navbar">
   <a href="home.php" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
-    <li><a href="pages/offerings.html">Offerings</a></li>
-    <li><a href="pages/courses.html">Courses</a></li>
-    <li><a href="pages/about.html">About</a></li>
-    <li><a href="pages/contact.html">Contact</a></li>
+    <li><a href="pages/offerings.php">Offerings</a></li>
+    <li><a href="pages/courses.php">Courses</a></li>
+    <li><a href="pages/about.php">About</a></li>
+    <li><a href="pages/contact.php">Contact</a></li>
     <li class="nav-profile-item">
       <a href="edit-org-profile.php" class="nav-profile active" aria-label="Edit profile">
         <span aria-hidden="true">🏢</span>
@@ -233,10 +233,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </nav>
 
 <nav class="nav-drawer" id="drawer">
-  <a href="pages/offerings.html" onclick="closeDrawer()">Offerings</a>
-  <a href="pages/courses.html" onclick="closeDrawer()">Courses</a>
-  <a href="pages/about.html" onclick="closeDrawer()">About</a>
-  <a href="pages/contact.html" onclick="closeDrawer()">Contact</a>
+  <a href="pages/offerings.php" onclick="closeDrawer()">Offerings</a>
+  <a href="pages/courses.php" onclick="closeDrawer()">Courses</a>
+  <a href="pages/about.php" onclick="closeDrawer()">About</a>
+  <a href="pages/contact.php" onclick="closeDrawer()">Contact</a>
   <a href="edit-org-profile.php" onclick="closeDrawer()">Edit profile</a>
   <a href="backend/logout.php" class="drawer-cta">Log out</a>
 </nav>
