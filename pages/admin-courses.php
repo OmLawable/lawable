@@ -8,45 +8,51 @@ $user = require_login('admin');
 
 $pdo = get_pdo();
 
-/* ── Combined users query: students + organizations ── */
+/* ── Fetch courses with organization names and enrollment counts ── */
 $stmt = $pdo->query("
     SELECT
-        'student' AS type,
-        id,
-        name AS display_name,
-        username,
-        email,
-        phone,
-        status,
-        created_at
-    FROM students
-    UNION ALL
-    SELECT
-        'organization' AS type,
-        id,
-        organization_name AS display_name,
-        username,
-        email,
-        phone,
-        status,
-        created_at
-    FROM organizations
-    ORDER BY created_at DESC
+        c.id,
+        c.title,
+        c.description,
+        c.price,
+        c.status,
+        c.created_at,
+        c.updated_at,
+        o.organization_name,
+        COALESCE(e.enrollment_count, 0) AS enrollment_count
+    FROM courses c
+    LEFT JOIN organizations o ON c.organization_id = o.id
+    LEFT JOIN (
+        SELECT course_id, COUNT(*) AS enrollment_count
+        FROM course_enrollments
+        GROUP BY course_id
+    ) e ON c.id = e.course_id
+    ORDER BY c.created_at DESC
 ");
-$all_users = $stmt->fetchAll();
+$all_courses = $stmt->fetchAll();
 
-/* Stats for page header */
-$total_students = (int) $pdo->query("SELECT COUNT(*) FROM students")->fetchColumn();
-$total_orgs = (int) $pdo->query("SELECT COUNT(*) FROM organizations")->fetchColumn();
-$total_users = $total_students + $total_orgs;
-$active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE status='active') + (SELECT COUNT(*) FROM organizations WHERE status='active')")->fetchColumn();
+/* Stats */
+$total_courses      = count($all_courses);
+$published_count    = 0;
+$draft_count        = 0;
+$archived_count     = 0;
+$total_enrollments  = 0;
+
+foreach ($all_courses as $course) {
+    switch ($course['status']) {
+        case 'published': $published_count++; break;
+        case 'draft':     $draft_count++;     break;
+        case 'archived':  $archived_count++;  break;
+    }
+    $total_enrollments += (int) $course['enrollment_count'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Users — Lawable Admin</title>
+  <title>Courses — Lawable Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../assets/css/lawable.css" />
   <style>
@@ -70,6 +76,8 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
       --red-bg: #FEE2E2;
       --blue: #2563EB;
       --blue-bg: #DBEAFE;
+      --purple: #7C3AED;
+      --purple-bg: #EDE9FE;
       --nav-h: 68px;
       --radius: 12px;
       --radius-lg: 16px;
@@ -140,7 +148,7 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
     /* ─── Mini stats row ───────────────────────────────── */
     .stat-row {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 1rem;
       margin-bottom: 1.5rem;
     }
@@ -151,23 +159,28 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
       box-shadow: var(--shadow);
       border: 1px solid rgba(229,224,216,0.5);
       transition: transform .2s, box-shadow .2s;
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
     }
     .stat-card:hover {
       transform: translateY(-2px);
       box-shadow: var(--shadow-lg);
     }
     .stat-card-icon {
-      width: 40px; height: 40px;
+      width: 44px; height: 44px;
       border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.2rem;
-      margin-bottom: 0.5rem;
+      font-size: 1.3rem;
+      flex-shrink: 0;
     }
-    .stat-card-icon.users { background: #DBEAFE; }
-    .stat-card-icon.students { background: #DCFCE7; }
-    .stat-card-icon.orgs { background: #FEF3C7; }
+    .stat-card-icon.courses-all    { background: var(--purple-bg); }
+    .stat-card-icon.published      { background: var(--green-bg); }
+    .stat-card-icon.draft          { background: var(--yellow-bg); }
+    .stat-card-icon.enrollments    { background: var(--blue-bg); }
+    .stat-card-body {}
     .stat-card-label {
       font-size: 0.8rem;
       font-weight: 500;
@@ -188,7 +201,7 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
     }
 
     /* ─── Filters / Search bar ─────────────────────────── */
-    .users-toolbar {
+    .courses-toolbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -201,14 +214,14 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
       border: 1px solid rgba(229,224,216,0.5);
       margin-bottom: 1.25rem;
     }
-    .users-search {
+    .courses-search {
       display: flex;
       align-items: center;
       gap: 0.5rem;
       flex: 1;
       min-width: 200px;
     }
-    .users-search input {
+    .courses-search input {
       flex: 1;
       padding: 0.6rem 0.85rem;
       border: 1.5px solid var(--border);
@@ -220,19 +233,19 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
       outline: none;
       transition: border-color .2s, box-shadow .2s;
     }
-    .users-search input:focus {
+    .courses-search input:focus {
       border-color: var(--gold);
       box-shadow: 0 0 0 3px rgba(201,147,58,0.12);
     }
-    .users-search input::placeholder {
+    .courses-search input::placeholder {
       color: var(--ink-soft);
     }
-    .users-filters {
+    .courses-filters {
       display: flex;
       align-items: center;
       gap: 0.5rem;
     }
-    .users-filters select {
+    .courses-filters select {
       appearance: none;
       background: var(--white);
       border: 1.5px solid var(--border);
@@ -248,12 +261,12 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
       background-position: right 0.65rem center;
       transition: border-color .2s;
     }
-    .users-filters select:focus {
+    .courses-filters select:focus {
       outline: none;
       border-color: var(--gold);
     }
 
-    .user-count-badge {
+    .course-count-badge {
       font-size: 0.8rem;
       font-weight: 600;
       color: var(--ink-soft);
@@ -263,22 +276,22 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
       white-space: nowrap;
     }
 
-    /* ─── Users Table ──────────────────────────────────── */
-    .users-card {
+    /* ─── Courses Table ────────────────────────────────── */
+    .courses-card {
       background: var(--white);
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow);
       border: 1px solid rgba(229,224,216,0.5);
       overflow: hidden;
     }
-    .users-table {
+    .courses-table {
       width: 100%;
       border-collapse: collapse;
     }
-    .users-table thead {
+    .courses-table thead {
       background: #FAFAF8;
     }
-    .users-table th {
+    .courses-table th {
       text-align: left;
       font-size: 0.7rem;
       font-weight: 600;
@@ -288,76 +301,68 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
       padding: 1rem 1.25rem;
       border-bottom: 1px solid var(--border);
     }
-    .users-table td {
+    .courses-table td {
       padding: 0.9rem 1.25rem;
       border-bottom: 1px solid rgba(229,224,216,0.4);
       font-size: 0.85rem;
       color: var(--ink-mid);
       vertical-align: middle;
     }
-    .users-table tbody tr {
+    .courses-table tbody tr {
       transition: background .15s;
     }
-    .users-table tbody tr:hover {
+    .courses-table tbody tr:hover {
       background: var(--cream);
     }
-    .users-table tbody tr:last-child td {
+    .courses-table tbody tr:last-child td {
       border-bottom: none;
     }
 
-    /* User entity (avatar + name/email) */
-    .user-entity {
+    /* Course entity (icon + title/desc) */
+    .course-entity {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 0.75rem;
     }
-    .user-avatar {
-      width: 36px; height: 36px;
-      border-radius: 50%;
+    .course-thumb-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.75rem;
-      font-weight: 600;
+      font-size: 1.1rem;
       flex-shrink: 0;
-    }
-    .user-avatar.student {
-      background: var(--blue-bg);
-      color: var(--blue);
-    }
-    .user-avatar.org {
       background: var(--gold-lt);
-      color: var(--gold-dk);
     }
-    .user-info {}
-    .user-name {
+    .course-info {}
+    .course-title {
       font-weight: 600;
       color: var(--ink);
       display: block;
+      line-height: 1.3;
     }
-    .user-email {
+    .course-desc {
       font-size: 0.75rem;
       color: var(--ink-soft);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      line-height: 1.4;
+      margin-top: 0.15rem;
     }
 
-    /* Type badge */
-    .type-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.3rem;
-      font-size: 0.72rem;
-      font-weight: 600;
-      padding: 0.25rem 0.75rem;
-      border-radius: 20px;
+    /* Price badge */
+    .price-badge {
+      font-weight: 700;
+      font-family: 'Playfair Display', serif;
+      font-size: 0.95rem;
+      color: var(--ink);
       white-space: nowrap;
     }
-    .type-badge.student {
-      background: var(--blue-bg);
-      color: var(--blue);
-    }
-    .type-badge.org {
-      background: var(--yellow-bg);
-      color: #92400E;
+    .price-badge.free {
+      color: var(--green);
+      font-size: 0.8rem;
     }
 
     /* Status badge */
@@ -371,14 +376,58 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
       border-radius: 20px;
       white-space: nowrap;
     }
-    .status-badge.active {
+    .status-badge.published {
       background: var(--green-bg);
       color: var(--green);
     }
-    .status-badge.inactive {
+    .status-badge.draft {
+      background: var(--yellow-bg);
+      color: #92400E;
+    }
+    .status-badge.archived {
       background: var(--red-bg);
       color: var(--red);
     }
+
+    .org-name {
+      font-size: 0.8rem;
+      color: var(--ink-soft);
+    }
+    .org-name strong {
+      color: var(--ink-mid);
+    }
+
+    .enroll-count {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--ink);
+    }
+
+    /* Action buttons */
+    .course-actions {
+      display: flex;
+      gap: 0.4rem;
+    }
+    .course-btn {
+      padding: 0.3rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: opacity .2s, transform .15s;
+      font-family: 'Inter', sans-serif;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+    }
+    .course-btn:hover {
+      opacity: 0.8;
+      transform: translateY(-1px);
+    }
+    .course-btn.view   { background: var(--blue-bg); color: var(--blue); }
+    .course-btn.edit   { background: var(--gold-lt); color: var(--gold-dk); }
 
     /* Empty state */
     .empty-state {
@@ -396,22 +445,24 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
 
     /* ─── Responsive ───────────────────────────────────── */
     @media (max-width: 1100px) {
-      .stat-row { grid-template-columns: repeat(3, 1fr); }
+      .stat-row { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 768px) {
       .dash-header { padding: 0 1rem; }
       .dash-content { padding: 0 1rem 2rem; }
-      .stat-row { grid-template-columns: repeat(3, 1fr); }
-      .users-toolbar { flex-direction: column; align-items: stretch; }
-      .users-search { min-width: 0; }
-      .users-filters { flex-wrap: wrap; }
-      .users-table th:nth-child(4),
-      .users-table td:nth-child(4) { display: none; }
+      .stat-row { grid-template-columns: repeat(2, 1fr); }
+      .courses-toolbar { flex-direction: column; align-items: stretch; }
+      .courses-search { min-width: 0; }
+      .courses-filters { flex-wrap: wrap; }
+      .courses-table th:nth-child(3),
+      .courses-table td:nth-child(3) { display: none; }
+      .courses-table th:nth-child(5),
+      .courses-table td:nth-child(5) { display: none; }
     }
     @media (max-width: 500px) {
       .stat-row { grid-template-columns: 1fr; }
-      .users-table th:nth-child(3),
-      .users-table td:nth-child(3) { display: none; }
+      .courses-table th:nth-child(4),
+      .courses-table td:nth-child(4) { display: none; }
     }
   </style>
 </head>
@@ -422,8 +473,8 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
   <a href="admin-dashboard.php" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
     <li><a href="admin-dashboard.php">Dashboard</a></li>
-    <li><a href="admin-users.php" class="active">Users</a></li>
-    <li><a href="admin-courses.php">Courses</a></li>
+    <li><a href="admin-users.php">Users</a></li>
+    <li><a href="admin-courses.php" class="active">Courses</a></li>
     <li><a href="admin-verifications.php">Verifications</a></li>
     <li><a href="../backend/logout.php" class="nav-cta">Log out</a></li>
   </ul>
@@ -446,9 +497,9 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
   <div class="dash-header">
     <div class="dash-header-left">
       <a href="admin-dashboard.php" class="back-link">← Dashboard</a>
-      <h1>Users</h1>
+      <h1>Courses</h1>
     </div>
-    <span class="user-count-badge"><?= number_format($total_users) ?> total</span>
+    <span class="course-count-badge"><?= number_format($total_courses) ?> total</span>
   </div>
 
   <div class="dash-content">
@@ -456,100 +507,138 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
     <!-- Mini stats -->
     <div class="stat-row">
       <div class="stat-card">
-        <div class="stat-card-icon users">👥</div>
-        <div class="stat-card-label">Total Users</div>
-        <div class="stat-card-value"><?= number_format($total_users) ?></div>
-        <div class="stat-card-sub"><?= number_format($active_users) ?> active</div>
+        <div class="stat-card-icon courses-all">📚</div>
+        <div class="stat-card-body">
+          <div class="stat-card-label">Total Courses</div>
+          <div class="stat-card-value"><?= number_format($total_courses) ?></div>
+          <div class="stat-card-sub">
+            <?= number_format($published_count) ?> published
+            <?= $draft_count > 0 ? '· '.number_format($draft_count).' draft' : '' ?>
+            <?= $archived_count > 0 ? '· '.number_format($archived_count).' archived' : '' ?>
+          </div>
+        </div>
       </div>
       <div class="stat-card">
-        <div class="stat-card-icon students">🎓</div>
-        <div class="stat-card-label">Students</div>
-        <div class="stat-card-value"><?= number_format($total_students) ?></div>
+        <div class="stat-card-icon published">✓</div>
+        <div class="stat-card-body">
+          <div class="stat-card-label">Published</div>
+          <div class="stat-card-value" style="color:var(--green);"><?= number_format($published_count) ?></div>
+          <div class="stat-card-sub">Active & available</div>
+        </div>
       </div>
       <div class="stat-card">
-        <div class="stat-card-icon orgs">🏛</div>
-        <div class="stat-card-label">Organizations</div>
-        <div class="stat-card-value"><?= number_format($total_orgs) ?></div>
+        <div class="stat-card-icon draft">✎</div>
+        <div class="stat-card-body">
+          <div class="stat-card-label">Drafts</div>
+          <div class="stat-card-value" style="color:#92400E;"><?= number_format($draft_count) ?></div>
+          <div class="stat-card-sub">Awaiting publishing</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-icon enrollments">🎓</div>
+        <div class="stat-card-body">
+          <div class="stat-card-label">Total Enrollments</div>
+          <div class="stat-card-value"><?= number_format($total_enrollments) ?></div>
+          <div class="stat-card-sub">Across all courses</div>
+        </div>
       </div>
     </div>
 
     <!-- Toolbar: search + filters -->
-    <div class="users-toolbar">
-      <div class="users-search">
-        <input type="text" id="searchInput" placeholder="Search by name, email, or username…" oninput="filterTable()" />
+    <div class="courses-toolbar">
+      <div class="courses-search">
+        <input type="text" id="searchInput" placeholder="Search courses by title, organization…" oninput="filterTable()" />
       </div>
-      <div class="users-filters">
-        <select id="typeFilter" onchange="filterTable()">
-          <option value="all">All types</option>
-          <option value="student">Students</option>
-          <option value="organization">Organizations</option>
-        </select>
+      <div class="courses-filters">
         <select id="statusFilter" onchange="filterTable()">
           <option value="all">All status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
+          <option value="published">Published</option>
+          <option value="draft">Draft</option>
+          <option value="archived">Archived</option>
+        </select>
+        <select id="priceFilter" onchange="filterTable()">
+          <option value="all">All prices</option>
+          <option value="free">Free</option>
+          <option value="paid">Paid</option>
         </select>
       </div>
     </div>
 
-    <!-- Users table -->
-    <div class="users-card">
-      <table class="users-table">
+    <!-- Courses table -->
+    <div class="courses-card">
+      <table class="courses-table">
         <thead>
           <tr>
-            <th>User</th>
-            <th>Username</th>
-            <th>Type</th>
+            <th>Course</th>
+            <th>Organization</th>
+            <th>Price</th>
             <th>Status</th>
-            <th>Joined</th>
+            <th>Enrollments</th>
+            <th>Created</th>
+            <th>Actions</th>
           </tr>
         </thead>
-        <tbody id="usersBody">
-          <?php if (empty($all_users)): ?>
+        <tbody id="coursesBody">
+          <?php if (empty($all_courses)): ?>
             <tr>
-              <td colspan="5">
+              <td colspan="7">
                 <div class="empty-state">
-                  <div class="empty-state-icon">👥</div>
-                  <div class="empty-state-text">No users found.</div>
+                  <div class="empty-state-icon">📚</div>
+                  <div class="empty-state-text">No courses found.</div>
                 </div>
               </td>
             </tr>
           <?php else: ?>
-            <?php foreach ($all_users as $u): ?>
+            <?php foreach ($all_courses as $c): ?>
               <?php
-                $is_student = $u['type'] === 'student';
-                $avatar_initials = $is_student
-                  ? strtoupper(substr($u['display_name'], 0, 2))
-                  : strtoupper(substr($u['display_name'], 0, 2));
+                $is_free = (float) $c['price'] <= 0;
+                $org_display = !empty($c['organization_name'])
+                  ? e($c['organization_name'])
+                  : '<span style="color:var(--ink-soft);font-style:italic;">Platform</span>';
+                $date_created = date('M j, Y', strtotime($c['created_at']));
               ?>
-              <tr class="user-row"
-                  data-type="<?= e($u['type']) ?>"
-                  data-status="<?= e($u['status']) ?>"
-                  data-search="<?= e(strtolower($u['display_name'] . ' ' . $u['email'] . ' ' . $u['username'])) ?>">
+              <tr class="course-row"
+                  data-status="<?= e($c['status']) ?>"
+                  data-price="<?= $is_free ? 'free' : 'paid' ?>"
+                  data-search="<?= e(strtolower($c['title'] . ' ' . ($c['organization_name'] ?? ''))) ?>">
                 <td>
-                  <div class="user-entity">
-                    <div class="user-avatar <?= $is_student ? 'student' : 'org' ?>">
-                      <?= $avatar_initials ?>
-                    </div>
-                    <div class="user-info">
-                      <span class="user-name"><?= e($u['display_name']) ?></span>
-                      <span class="user-email"><?= e($u['email']) ?></span>
+                  <div class="course-entity">
+                    <div class="course-thumb-icon">⚖</div>
+                    <div class="course-info">
+                      <span class="course-title"><?= e($c['title']) ?></span>
+                      <?php if (!empty($c['description'])): ?>
+                        <span class="course-desc"><?= e(mb_substr($c['description'], 0, 100)) ?><?= mb_strlen($c['description']) > 100 ? '…' : '' ?></span>
+                      <?php endif; ?>
                     </div>
                   </div>
                 </td>
-                <td><span style="color:var(--ink-soft);font-size:0.8rem;">@<?= e($u['username']) ?></span></td>
+                <td><span class="org-name"><?= $org_display ?></span></td>
                 <td>
-                  <span class="type-badge <?= $is_student ? 'student' : 'org' ?>">
-                    <?= $is_student ? '🎓 Student' : '🏛 Organization' ?>
+                  <span class="price-badge <?= $is_free ? 'free' : '' ?>">
+                    <?= $is_free ? 'Free' : '₹'.number_format((float)$c['price']) ?>
                   </span>
                 </td>
                 <td>
-                  <span class="status-badge <?= e($u['status']) ?>">
-                    <?= $u['status'] === 'active' ? '✓' : '✕' ?> <?= ucfirst(e($u['status'])) ?>
+                  <span class="status-badge <?= e($c['status']) ?>">
+                    <?= match($c['status']) {
+                      'published' => '✓ Published',
+                      'draft'     => '✎ Draft',
+                      'archived'  => '✕ Archived',
+                      default     => e($c['status'])
+                    } ?>
                   </span>
+                </td>
+                <td>
+                  <span class="enroll-count"><?= number_format((int)$c['enrollment_count']) ?></span>
                 </td>
                 <td style="white-space:nowrap;font-size:0.8rem;color:var(--ink-soft);">
-                  <?= date('M j, Y', strtotime($u['created_at'])) ?>
+                  <?= $date_created ?>
+                </td>
+                <td>
+                  <div class="course-actions">
+                    <a href="#" class="course-btn view">👁 View</a>
+                    <a href="#" class="course-btn edit">✎ Edit</a>
+                  </div>
                 </td>
               </tr>
             <?php endforeach; ?>
@@ -580,20 +669,20 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
 /* ── Filter table ── */
 function filterTable() {
   const search = document.getElementById('searchInput').value.toLowerCase().trim();
-  const type = document.getElementById('typeFilter').value;
   const status = document.getElementById('statusFilter').value;
-  const rows = document.querySelectorAll('.user-row');
+  const price  = document.getElementById('priceFilter').value;
+  const rows   = document.querySelectorAll('.course-row');
 
   rows.forEach(function(row) {
-    const rowType = row.getAttribute('data-type');
     const rowStatus = row.getAttribute('data-status');
+    const rowPrice  = row.getAttribute('data-price');
     const rowSearch = row.getAttribute('data-search');
 
-    const matchType = type === 'all' || rowType === type;
     const matchStatus = status === 'all' || rowStatus === status;
+    const matchPrice  = price === 'all' || rowPrice === price;
     const matchSearch = !search || rowSearch.indexOf(search) !== -1;
 
-    row.style.display = (matchType && matchStatus && matchSearch) ? '' : 'none';
+    row.style.display = (matchStatus && matchPrice && matchSearch) ? '' : 'none';
   });
 }
 </script>

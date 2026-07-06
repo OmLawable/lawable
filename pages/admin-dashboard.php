@@ -634,8 +634,8 @@ $activities = $pdo->query("
   <ul class="nav-links">
     <li><a href="admin-dashboard.php" class="active">Dashboard</a></li>
     <li><a href="admin-users.php">Users</a></li>
-    <li><a href="#">Courses</a></li>
-    <li><a href="#">Verifications</a></li>
+    <li><a href="admin-courses.php">Courses</a></li>
+    <li><a href="admin-verifications.php">Verifications</a></li>
     <li><a href="../backend/logout.php" class="nav-cta">Log out</a></li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
@@ -645,8 +645,8 @@ $activities = $pdo->query("
 <nav class="nav-drawer" id="drawer">
   <a href="admin-dashboard.php">Dashboard</a>
   <a href="admin-users.php">Users</a>
-  <a href="#">Courses</a>
-  <a href="#">Verifications</a>
+  <a href="admin-courses.php">Courses</a>
+  <a href="admin-verifications.php">Verifications</a>
   <a href="../backend/logout.php" class="drawer-cta">Log out</a>
 </nav>
 
