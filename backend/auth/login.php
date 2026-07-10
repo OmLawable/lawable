@@ -78,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Determine redirect based on role
 $redirectUrl = match ($role) {
             'user' => 'pages/user-dashboard.php',
+            'admin' => 'pages/teacher-dashboard.php',
             default => 'home.php',
         };
 
