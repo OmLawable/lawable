@@ -76,13 +76,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Determine redirect based on role
-        $redirectUrl = 'home.php';
+$redirectUrl = match ($role) {
+            'user' => 'pages/user-dashboard.php',
+            default => 'home.php',
+        };
 
         if ($isAjax) {
             json_response([
                 'success' => true,
                 'message' => 'Login successful.',
-                'redirect' => '/lawable/' . $redirectUrl,
+'redirect' => '/lawable/' . $redirectUrl,
             ]);
         }
 
