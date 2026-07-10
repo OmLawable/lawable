@@ -190,47 +190,12 @@ $flash = get_flash();
         </div>
       </div>
 
-      <div class="card">
-        <h2>Friends & Quiz</h2>
-        <div class="meta" style="margin-bottom:0.7rem;">Friends (accepted): <?= count($friends) ?></div>
-        <?php if ($friends): ?>
-          <?php foreach (array_slice($friends, 0, 5) as $f): ?>
-            <div class="item">
-              <div style="font-weight:700;"><?= e($f['name'] ?? $f['username'] ?? '') ?></div>
-              <div class="meta">Username: <?= e($f['username'] ?? '') ?><?= !empty($f['city']) ? ' • City: ' . e($f['city']) : '' ?></div>
-            </div>
-          <?php endforeach; ?>
-        <?php else: ?>
-          <div class="meta">No friends yet.</div>
-        <?php endif; ?>
-
-        <div style="height: 0.8rem;"></div>
-        <div class="meta" style="margin-bottom:0.4rem;">Available quizzes (from your courses):</div>
-        <?php if ($quizzes): ?>
-          <?php foreach ($quizzes as $q): ?>
-            <div class="item">
-              <div style="font-weight:700;"><?= e($q['title'] ?? '') ?></div>
-              <div class="meta"><?= e($q['description'] ?? '') ?></div>
-            </div>
-          <?php endforeach; ?>
-        <?php else: ?>
-          <div class="meta">No quizzes found.</div>
-        <?php endif; ?>
-      </div>
-
       <div class="card" style="grid-column: 1 / -1;">
-        <h2>Messages</h2>
-        <?php if (!$messages): ?>
-          <div class="meta">No messages yet.</div>
-        <?php else: ?>
-          <?php foreach ($messages as $m): ?>
-            <div class="item">
-              <div style="font-weight:700;">From: <?= e($m['from_name'] ?? 'Unknown') ?><?= !empty($m['is_read']) && (int)$m['is_read'] === 0 ? ' • Unread' : '' ?></div>
-              <div class="meta"><?= e($m['content'] ?? '') ?></div>
-              <div class="meta"><?= e($m['created_at'] ?? '') ?></div>
-            </div>
-          <?php endforeach; ?>
-        <?php endif; ?>
+        <h2>Upcoming / Assignments</h2>
+        <div class="meta">Using assignments tables (if you add items in DB, they will appear here).</div>
+        <div class="item" style="border-bottom:0;">
+          <div class="meta">This section is prepared; update DB assignments for real data.</div>
+        </div>
       </div>
     </div>
   </div>
