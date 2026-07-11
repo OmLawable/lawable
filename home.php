@@ -31,8 +31,8 @@ $user = current_user();
     <li><a href="pages/contact.php">Contact</a></li>
     <?php if (($user['role'] ?? '') !== 'admin'): ?>
     <li class="nav-profile-item">
-      <a href="<?= ($user['role'] ?? 'user') === 'organization' ? 'edit-org-profile.php' : 'edit-profile.php' ?>" class="nav-profile" aria-label="Edit profile">
-        <span aria-hidden="true"><?= ($user['role'] ?? 'user') === 'organization' ? '🏢' : '👤' ?></span>
+      <a href="edit-profile.php" class="nav-profile" aria-label="Edit profile">
+        <span aria-hidden="true">👤</span>
       </a>
     </li>
     <?php endif; ?>
@@ -55,7 +55,7 @@ $user = current_user();
   <a href="pages/about.php" onclick="closeDrawer()">About</a>
   <a href="pages/contact.php" onclick="closeDrawer()">Contact</a>
   <?php if (($user['role'] ?? '') !== 'admin'): ?>
-  <a href="<?= ($user['role'] ?? 'user') === 'organization' ? 'edit-org-profile.php' : 'edit-profile.php' ?>" onclick="closeDrawer()">Edit profile</a>
+  <a href="edit-profile.php" onclick="closeDrawer()">Edit profile</a>
   <?php endif; ?>
   <button class="theme-toggle drawer-theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
     <span class="theme-toggle-icon" aria-hidden="true">D</span>
