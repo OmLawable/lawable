@@ -476,6 +476,12 @@ foreach ($all_courses as $course) {
     <li><a href="admin-users.php">Users</a></li>
     <li><a href="admin-courses.php" class="active">Courses</a></li>
     <li><a href="admin-verifications.php">Verifications</a></li>
+    <li>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
+        <span class="theme-toggle-icon" aria-hidden="true">D</span>
+        <span class="theme-toggle-text">Dark</span>
+      </button>
+    </li>
     <li><a href="../backend/logout.php" class="nav-cta">Log out</a></li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
@@ -484,9 +490,13 @@ foreach ($all_courses as $course) {
 </nav>
 <nav class="nav-drawer" id="drawer">
   <a href="admin-dashboard.php">Dashboard</a>
-  <a href="admin-users.php" class="active">Users</a>
+  <a href="admin-users.php">Users</a>
   <a href="admin-courses.php">Courses</a>
   <a href="admin-verifications.php">Verifications</a>
+  <button class="theme-toggle drawer-theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
+    <span class="theme-toggle-icon" aria-hidden="true">D</span>
+    <span class="theme-toggle-text">Dark theme</span>
+  </button>
   <a href="../backend/logout.php" class="drawer-cta">Log out</a>
 </nav>
 

@@ -563,6 +563,12 @@ foreach ($reports as $r) {
     <li><a href="admin-users.php">Users</a></li>
     <li><a href="admin-courses.php">Courses</a></li>
     <li><a href="admin-verifications.php" class="active">Verifications</a></li>
+    <li>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
+        <span class="theme-toggle-icon" aria-hidden="true">D</span>
+        <span class="theme-toggle-text">Dark</span>
+      </button>
+    </li>
     <li><a href="../backend/logout.php" class="nav-cta">Log out</a></li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
@@ -574,6 +580,10 @@ foreach ($reports as $r) {
   <a href="admin-users.php">Users</a>
   <a href="admin-courses.php">Courses</a>
   <a href="admin-verifications.php" class="active">Verifications</a>
+  <button class="theme-toggle drawer-theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
+    <span class="theme-toggle-icon" aria-hidden="true">D</span>
+    <span class="theme-toggle-text">Dark theme</span>
+  </button>
   <a href="../backend/logout.php" class="drawer-cta">Log out</a>
 </nav>
 

@@ -44,6 +44,12 @@ if ($isLoggedIn && ($user['role'] ?? 'user') === 'organization') {
     <?php else: ?>
     <li><a href="login.php" class="nav-cta">Log in →</a></li>
     <?php endif; ?>
+    <li>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
+        <span class="theme-toggle-icon" aria-hidden="true">D</span>
+        <span class="theme-toggle-text">Dark</span>
+      </button>
+    </li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
     <span></span><span></span><span></span>
@@ -63,6 +69,10 @@ if ($isLoggedIn && ($user['role'] ?? 'user') === 'organization') {
   <?php else: ?>
   <a href="login.php" class="drawer-cta">Log in →</a>
   <?php endif; ?>
+  <button class="theme-toggle drawer-theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
+    <span class="theme-toggle-icon" aria-hidden="true">D</span>
+    <span class="theme-toggle-text">Dark theme</span>
+  </button>
 </nav>
 
 <section class="hero" style="min-height:70vh;">
