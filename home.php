@@ -36,6 +36,12 @@ $user = current_user();
       </a>
     </li>
     <?php endif; ?>
+    <li>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
+        <span class="theme-toggle-icon" aria-hidden="true">D</span>
+        <span class="theme-toggle-text">Dark</span>
+      </button>
+    </li>
     <li><a href="backend/logout.php" class="nav-cta">Log out</a></li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
@@ -51,6 +57,10 @@ $user = current_user();
   <?php if (($user['role'] ?? '') !== 'admin'): ?>
   <a href="<?= ($user['role'] ?? 'user') === 'organization' ? 'edit-org-profile.php' : 'edit-profile.php' ?>" onclick="closeDrawer()">Edit profile</a>
   <?php endif; ?>
+  <button class="theme-toggle drawer-theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
+    <span class="theme-toggle-icon" aria-hidden="true">D</span>
+    <span class="theme-toggle-text">Dark theme</span>
+  </button>
   <a href="backend/logout.php" class="drawer-cta">Log out</a>
 </nav>
 
@@ -87,7 +97,7 @@ $user = current_user();
   </div>
   <div class="landing-card fade-up delay-2">
     <h3>About</h3>
-    <p>Learn more about Lawable’s mission and approach to legal education.</p>
+    <p>Learn more about Lawable's mission and approach to legal education.</p>
     <a href="pages/about.php">Read about us →</a>
   </div>
   <div class="landing-card fade-up delay-3">

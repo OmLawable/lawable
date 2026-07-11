@@ -806,14 +806,7 @@ foreach ($reports as $r) {
 <script>
 (function() {
   'use strict';
-  const hamburger = document.getElementById('hamburger');
-  const drawer = document.getElementById('drawer');
-  if (hamburger) {
-    hamburger.addEventListener('click', function() {
-      this.classList.toggle('open');
-      drawer.classList.toggle('open');
-    });
-  }
+  /* Hamburger already handled by script.js — no duplicate listener needed */
 })();
 
 function switchTab(btn, status) {

@@ -4,6 +4,40 @@ const drawer = document.getElementById('drawer');
 const backTop = document.getElementById('backTop');
 const cursorGlow = document.getElementById('cursorGlow');
 const progressBar = document.getElementById('progressBar');
+const themeToggles = document.querySelectorAll('[data-theme-toggle]');
+
+const storedTheme = localStorage.getItem('lawable-theme');
+const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+const initialTheme = storedTheme || (prefersDark ? 'dark' : 'light');
+
+function updateThemeToggleLabels(isDark) {
+  themeToggles.forEach((toggle) => {
+    const icon = toggle.querySelector('.theme-toggle-icon');
+    const text = toggle.querySelector('.theme-toggle-text');
+    toggle.setAttribute('aria-pressed', String(isDark));
+    toggle.setAttribute('aria-label', isDark ? 'Switch to light theme' : 'Switch to dark theme');
+    if (icon) icon.textContent = isDark ? 'L' : 'D';
+    if (text) text.textContent = toggle.classList.contains('drawer-theme-toggle')
+      ? (isDark ? 'Light theme' : 'Dark theme')
+      : (isDark ? 'Light' : 'Dark');
+  });
+}
+
+function setTheme(theme) {
+  const isDark = theme === 'dark';
+  document.body.classList.toggle('dark-theme', isDark);
+  localStorage.setItem('lawable-theme', theme);
+  updateThemeToggleLabels(isDark);
+}
+
+setTheme(initialTheme);
+
+themeToggles.forEach((toggle) => {
+  toggle.addEventListener('click', () => {
+    const nextTheme = document.body.classList.contains('dark-theme') ? 'light' : 'dark';
+    setTheme(nextTheme);
+  });
+});
 
 window.addEventListener('scroll', () => {
   if (navbar) navbar.classList.toggle('scrolled', window.scrollY > 10);

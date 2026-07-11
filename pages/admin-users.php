@@ -566,15 +566,7 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
 (function() {
   'use strict';
 
-  /* ── Mobile menu ── */
-  const hamburger = document.getElementById('hamburger');
-  const drawer = document.getElementById('drawer');
-  if (hamburger) {
-    hamburger.addEventListener('click', function() {
-      this.classList.toggle('open');
-      drawer.classList.toggle('open');
-    });
-  }
+  /* Hamburger already handled by script.js — no duplicate listener needed */
 })();
 
 /* ── Filter table ── */

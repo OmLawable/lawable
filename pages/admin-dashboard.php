@@ -935,6 +935,8 @@ $activities = $pdo->query("
 (function() {
   'use strict';
 
+  /* Hamburger already handled by script.js — no duplicate listener needed */
+
   /* ── Bar Chart: Platform Growth ── */
   var ctxBar = document.getElementById('growthChart');
   if (ctxBar) {
