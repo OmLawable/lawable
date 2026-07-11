@@ -85,6 +85,31 @@ foreach ($all_courses as $course) {
       --shadow-lg: 0 12px 40px rgba(13,17,23,0.12);
     }
 
+    body.dark-theme {
+      --gold: #D8A84F;
+      --gold-dk: #F0C56D;
+      --gold-lt: #3A3022;
+      --cream: #111827;
+      --page-bg: #0F172A;
+      --white: #1E293B;
+      --ink: #F8FAFC;
+      --ink-mid: #CBD5E1;
+      --ink-soft: #94A3B8;
+      --border: #334155;
+      --green: #22C55E;
+      --green-bg: #064E3B;
+      --yellow: #EAB308;
+      --yellow-bg: #422006;
+      --red: #EF4444;
+      --red-bg: #450A0A;
+      --blue: #60A5FA;
+      --blue-bg: #1E3A5F;
+      --purple: #A78BFA;
+      --purple-bg: #3B2070;
+      --shadow: 0 4px 24px rgba(0,0,0,0.40);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.50);
+    }
+
     body {
       background: var(--page-bg);
       font-family: 'Inter', sans-serif;
@@ -290,6 +315,9 @@ foreach ($all_courses as $course) {
     }
     .courses-table thead {
       background: #FAFAF8;
+    }
+    body.dark-theme .courses-table thead {
+      background: rgba(255,255,255,0.04);
     }
     .courses-table th {
       text-align: left;

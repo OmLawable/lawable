@@ -77,6 +77,29 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
       --shadow-lg: 0 12px 40px rgba(13,17,23,0.12);
     }
 
+    body.dark-theme {
+      --gold: #D8A84F;
+      --gold-dk: #F0C56D;
+      --gold-lt: #3A3022;
+      --cream: #111827;
+      --page-bg: #0F172A;
+      --white: #1E293B;
+      --ink: #F8FAFC;
+      --ink-mid: #CBD5E1;
+      --ink-soft: #94A3B8;
+      --border: #334155;
+      --green: #22C55E;
+      --green-bg: #064E3B;
+      --yellow: #EAB308;
+      --yellow-bg: #422006;
+      --red: #EF4444;
+      --red-bg: #450A0A;
+      --blue: #60A5FA;
+      --blue-bg: #1E3A5F;
+      --shadow: 0 4px 24px rgba(0,0,0,0.40);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.50);
+    }
+
     body {
       background: var(--page-bg);
       font-family: 'Inter', sans-serif;
@@ -278,6 +301,9 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
     .users-table thead {
       background: #FAFAF8;
     }
+    body.dark-theme .users-table thead {
+      background: rgba(255,255,255,0.04);
+    }
     .users-table th {
       text-align: left;
       font-size: 0.7rem;
@@ -329,6 +355,8 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
       background: var(--gold-lt);
       color: var(--gold-dk);
     }
+    body.dark-theme .user-avatar.student { background: #1E3A5F; color: #93C5FD; }
+    body.dark-theme .user-avatar.org { background: #422006; color: #F0C56D; }
     .user-info {}
     .user-name {
       font-weight: 600;

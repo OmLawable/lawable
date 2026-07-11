@@ -140,6 +140,31 @@ $activities = $pdo->query("
       --shadow-lg: 0 12px 40px rgba(13,17,23,0.12);
     }
 
+    body.dark-theme {
+      --gold: #D8A84F;
+      --gold-dk: #F0C56D;
+      --gold-lt: #3A3022;
+      --cream: #111827;
+      --page-bg: #0F172A;
+      --white: #1E293B;
+      --ink: #F8FAFC;
+      --ink-mid: #CBD5E1;
+      --ink-soft: #94A3B8;
+      --border: #334155;
+      --green: #22C55E;
+      --green-bg: #064E3B;
+      --yellow: #EAB308;
+      --yellow-bg: #422006;
+      --red: #EF4444;
+      --red-bg: #450A0A;
+      --blue: #60A5FA;
+      --blue-bg: #1E3A5F;
+      --chart-navy: #60A5FA;
+      --chart-green: #22C55E;
+      --shadow: 0 4px 24px rgba(0,0,0,0.40);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.50);
+    }
+
     body {
       background: var(--page-bg);
       font-family: 'Inter', sans-serif;
@@ -239,7 +264,7 @@ $activities = $pdo->query("
       border-radius: var(--radius-lg);
       padding: 1.25rem 1.5rem;
       box-shadow: var(--shadow);
-      border: 1px solid rgba(229,224,216,0.5);
+      border: 1px solid var(--border);
       transition: transform .2s, box-shadow .2s;
     }
     .stat-card:hover {
@@ -265,6 +290,11 @@ $activities = $pdo->query("
     .stat-card-icon.orgs { background: #FEF3C7; }
     .stat-card-icon.verifications { background: #FCE7F3; }
     .stat-card-icon.courses { background: #EDE9FE; }
+    body.dark-theme .stat-card-icon.users { background: #1E3A5F; }
+    body.dark-theme .stat-card-icon.students { background: #064E3B; }
+    body.dark-theme .stat-card-icon.orgs { background: #422006; }
+    body.dark-theme .stat-card-icon.verifications { background: #4A0E3B; }
+    body.dark-theme .stat-card-icon.courses { background: #3B2070; }
     .stat-badge {
       font-size: 0.7rem;
       font-weight: 600;
@@ -277,6 +307,7 @@ $activities = $pdo->query("
     .stat-badge.up { background: var(--green-bg); color: var(--green); }
     .stat-badge.down { background: var(--red-bg); color: var(--red); }
     .stat-badge.warn { background: var(--yellow-bg); color: #92400E; }
+    body.dark-theme .stat-badge.warn { color: #FBBF24; }
     .stat-card-label {
       font-size: 0.8rem;
       font-weight: 500;
@@ -303,7 +334,7 @@ $activities = $pdo->query("
       border-radius: var(--radius-lg);
       padding: 1.5rem;
       box-shadow: var(--shadow);
-      border: 1px solid rgba(229,224,216,0.5);
+      border: 1px solid var(--border);
     }
     .dash-card-header {
       display: flex;
@@ -427,6 +458,8 @@ $activities = $pdo->query("
       transition: background .2s;
     }
     .health-item:hover { background: var(--cream); }
+    body.dark-theme .health-item { background: rgba(255,255,255,0.04); }
+    body.dark-theme .health-item:hover { background: rgba(255,255,255,0.08); }
     .health-item-icon {
       flex-shrink: 0;
       width: 20px; height: 20px;
@@ -438,6 +471,7 @@ $activities = $pdo->query("
     }
     .health-item-icon.done { background: var(--green-bg); color: var(--green); }
     .health-item-icon.half { background: var(--yellow-bg); color: #92400E; }
+    body.dark-theme .health-item-icon.half { color: #FBBF24; }
     .health-item-icon.pending { background: var(--border); color: var(--ink-soft); }
     .health-item-text {
       flex: 1;
@@ -473,7 +507,7 @@ $activities = $pdo->query("
     }
     .verif-table td {
       padding: 0.75rem 0;
-      border-bottom: 1px solid rgba(229,224,216,0.4);
+      border-bottom: 1px solid var(--border);
       font-size: 0.85rem;
       color: var(--ink-mid);
       vertical-align: middle;
@@ -517,7 +551,9 @@ $activities = $pdo->query("
       white-space: nowrap;
     }
     .status-badge.pending { background: var(--yellow-bg); color: #92400E; }
+    body.dark-theme .status-badge.pending { color: #FBBF24; }
     .status-badge.under_review, .status-badge.under-review { background: var(--blue-bg); color: #1E40AF; }
+    body.dark-theme .status-badge.under_review, body.dark-theme .status-badge.under-review { color: #93C5FD; }
     .status-badge.verified { background: var(--green-bg); color: var(--green); }
     .status-badge.rejected { background: var(--red-bg); color: var(--red); }
 
@@ -562,6 +598,8 @@ $activities = $pdo->query("
       transition: background .2s;
     }
     .activity-item:hover { background: var(--cream); }
+    body.dark-theme .activity-item { background: rgba(255,255,255,0.04); }
+    body.dark-theme .activity-item:hover { background: rgba(255,255,255,0.08); }
     .activity-icon {
       width: 36px; height: 36px;
       border-radius: 10px;
@@ -576,6 +614,9 @@ $activities = $pdo->query("
     .activity-icon.alert  { background: var(--yellow-bg); }
     .activity-icon.check  { background: var(--green-bg); }
     .activity-icon.ticket { background: var(--blue-bg); }
+    body.dark-theme .activity-icon.org    { background: #422006; }
+    body.dark-theme .activity-icon.check  { background: #064E3B; }
+    body.dark-theme .activity-icon.ticket { background: #1E3A5F; }
     .activity-content {
       flex: 1;
       min-width: 0;
@@ -606,6 +647,7 @@ $activities = $pdo->query("
     }
     .priority-badge.high   { background: var(--red-bg); color: var(--red); }
     .priority-badge.medium { background: var(--yellow-bg); color: #92400E; }
+    body.dark-theme .priority-badge.medium { color: #FBBF24; }
     .priority-badge.low    { background: var(--green-bg); color: var(--green); }
 
     /* ─── Responsive ──────────────────────────────────── */
@@ -628,7 +670,7 @@ $activities = $pdo->query("
 </head>
 <body>
 
-<!-- ─── NAVBAR (same as home.php) ─────────────────────────────── -->
+<!-- ─── NAVBAR ─────────────────────────────────────────────── -->
 <nav id="navbar" class="scrolled">
   <a href="admin-dashboard.php" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
