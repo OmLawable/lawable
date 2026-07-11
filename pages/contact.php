@@ -3,13 +3,7 @@ require_once __DIR__ . '/../backend/includes/functions.php';
 start_secure_session();
 $user = current_user();
 $isLoggedIn = $user !== null;
-$profileLink = '../edit-profile.php';
-$profileIcon = '👤';
 $isAdmin = $isLoggedIn && ($user['role'] ?? '') === 'admin';
-if ($isLoggedIn && ($user['role'] ?? 'user') === 'organization') {
-    $profileLink = '../edit-org-profile.php';
-    $profileIcon = '🏢';
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -35,8 +29,8 @@ if ($isLoggedIn && ($user['role'] ?? 'user') === 'organization') {
     <?php if ($isLoggedIn): ?>
     <?php if (!$isAdmin): ?>
     <li class="nav-profile-item">
-      <a href="<?= $profileLink ?>" class="nav-profile" aria-label="Edit profile">
-        <span aria-hidden="true"><?= $profileIcon ?></span>
+      <a href="../edit-profile.php" class="nav-profile" aria-label="Edit profile">
+        <span aria-hidden="true">👤</span>
       </a>
     </li>
     <?php endif; ?>
@@ -44,6 +38,12 @@ if ($isLoggedIn && ($user['role'] ?? 'user') === 'organization') {
     <?php else: ?>
     <li><a href="login.php" class="nav-cta">Log in →</a></li>
     <?php endif; ?>
+    <li>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
+        <span class="theme-toggle-icon" aria-hidden="true">D</span>
+        <span class="theme-toggle-text">Dark</span>
+      </button>
+    </li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
     <span></span><span></span><span></span>
@@ -57,12 +57,16 @@ if ($isLoggedIn && ($user['role'] ?? 'user') === 'organization') {
   <a href="contact.php" onclick="closeDrawer()">Contact</a>
   <?php if ($isLoggedIn): ?>
   <?php if (!$isAdmin): ?>
-  <a href="<?= $profileLink ?>" onclick="closeDrawer()">Edit profile</a>
+  <a href="../edit-profile.php" onclick="closeDrawer()">Edit profile</a>
   <?php endif; ?>
   <a href="../backend/logout.php" class="drawer-cta">Log out</a>
   <?php else: ?>
   <a href="login.php" class="drawer-cta">Log in →</a>
   <?php endif; ?>
+  <button class="theme-toggle drawer-theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
+    <span class="theme-toggle-icon" aria-hidden="true">D</span>
+    <span class="theme-toggle-text">Dark theme</span>
+  </button>
 </nav>
 
 <section class="hero" style="min-height:70vh;">

@@ -85,6 +85,31 @@ foreach ($all_courses as $course) {
       --shadow-lg: 0 12px 40px rgba(13,17,23,0.12);
     }
 
+    body.dark-theme {
+      --gold: #D8A84F;
+      --gold-dk: #F0C56D;
+      --gold-lt: #3A3022;
+      --cream: #111827;
+      --page-bg: #0F172A;
+      --white: #1E293B;
+      --ink: #F8FAFC;
+      --ink-mid: #CBD5E1;
+      --ink-soft: #94A3B8;
+      --border: #334155;
+      --green: #22C55E;
+      --green-bg: #064E3B;
+      --yellow: #EAB308;
+      --yellow-bg: #422006;
+      --red: #EF4444;
+      --red-bg: #450A0A;
+      --blue: #60A5FA;
+      --blue-bg: #1E3A5F;
+      --purple: #A78BFA;
+      --purple-bg: #3B2070;
+      --shadow: 0 4px 24px rgba(0,0,0,0.40);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.50);
+    }
+
     body {
       background: var(--page-bg);
       font-family: 'Inter', sans-serif;
@@ -291,6 +316,9 @@ foreach ($all_courses as $course) {
     .courses-table thead {
       background: #FAFAF8;
     }
+    body.dark-theme .courses-table thead {
+      background: rgba(255,255,255,0.04);
+    }
     .courses-table th {
       text-align: left;
       font-size: 0.7rem;
@@ -476,6 +504,12 @@ foreach ($all_courses as $course) {
     <li><a href="admin-users.php">Users</a></li>
     <li><a href="admin-courses.php" class="active">Courses</a></li>
     <li><a href="admin-verifications.php">Verifications</a></li>
+    <li>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
+        <span class="theme-toggle-icon" aria-hidden="true">D</span>
+        <span class="theme-toggle-text">Dark</span>
+      </button>
+    </li>
     <li><a href="../backend/logout.php" class="nav-cta">Log out</a></li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
@@ -484,9 +518,13 @@ foreach ($all_courses as $course) {
 </nav>
 <nav class="nav-drawer" id="drawer">
   <a href="admin-dashboard.php">Dashboard</a>
-  <a href="admin-users.php" class="active">Users</a>
+  <a href="admin-users.php">Users</a>
   <a href="admin-courses.php">Courses</a>
   <a href="admin-verifications.php">Verifications</a>
+  <button class="theme-toggle drawer-theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
+    <span class="theme-toggle-icon" aria-hidden="true">D</span>
+    <span class="theme-toggle-text">Dark theme</span>
+  </button>
   <a href="../backend/logout.php" class="drawer-cta">Log out</a>
 </nav>
 
@@ -655,15 +693,7 @@ foreach ($all_courses as $course) {
 (function() {
   'use strict';
 
-  /* ── Mobile menu ── */
-  const hamburger = document.getElementById('hamburger');
-  const drawer = document.getElementById('drawer');
-  if (hamburger) {
-    hamburger.addEventListener('click', function() {
-      this.classList.toggle('open');
-      drawer.classList.toggle('open');
-    });
-  }
+  /* Hamburger already handled by script.js — no duplicate listener needed */
 })();
 
 /* ── Filter table ── */

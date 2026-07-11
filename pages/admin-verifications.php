@@ -128,6 +128,33 @@ foreach ($reports as $r) {
       --shadow-lg: 0 12px 40px rgba(13,17,23,0.12);
     }
 
+    body.dark-theme {
+      --gold: #D8A84F;
+      --gold-dk: #F0C56D;
+      --gold-lt: #3A3022;
+      --cream: #111827;
+      --page-bg: #0F172A;
+      --white: #1E293B;
+      --ink: #F8FAFC;
+      --ink-mid: #CBD5E1;
+      --ink-soft: #94A3B8;
+      --border: #334155;
+      --green: #22C55E;
+      --green-bg: #064E3B;
+      --yellow: #EAB308;
+      --yellow-bg: #422006;
+      --red: #EF4444;
+      --red-bg: #450A0A;
+      --blue: #60A5FA;
+      --blue-bg: #1E3A5F;
+      --purple: #A78BFA;
+      --purple-bg: #3B2070;
+      --orange: #FB923C;
+      --orange-bg: #431407;
+      --shadow: 0 4px 24px rgba(0,0,0,0.40);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.50);
+    }
+
     body {
       background: var(--page-bg);
       font-family: 'Inter', sans-serif;
@@ -198,7 +225,7 @@ foreach ($reports as $r) {
       border-radius: var(--radius-lg);
       padding: 1.25rem 1.5rem;
       box-shadow: var(--shadow);
-      border: 1px solid rgba(229,224,216,0.5);
+      border: 1px solid var(--border);
       transition: transform .2s, box-shadow .2s;
       display: flex;
       align-items: flex-start;
@@ -302,7 +329,7 @@ foreach ($reports as $r) {
       border-radius: var(--radius-lg);
       padding: 1.5rem;
       box-shadow: var(--shadow);
-      border: 1px solid rgba(229,224,216,0.5);
+      border: 1px solid var(--border);
     }
     .dash-card-header {
       display: flex;
@@ -343,7 +370,7 @@ foreach ($reports as $r) {
     }
     .verif-table td {
       padding: 0.75rem 0;
-      border-bottom: 1px solid rgba(229,224,216,0.4);
+      border-bottom: 1px solid var(--border);
       font-size: 0.85rem;
       color: var(--ink-mid);
       vertical-align: middle;
@@ -389,11 +416,15 @@ foreach ($reports as $r) {
       white-space: nowrap;
     }
     .status-badge.pending { background: var(--yellow-bg); color: #92400E; }
+    body.dark-theme .status-badge.pending { color: #FBBF24; }
     .status-badge.under_review, .status-badge.under-review { background: var(--blue-bg); color: #1E40AF; }
+    body.dark-theme .status-badge.under_review, body.dark-theme .status-badge.under-review { color: #93C5FD; }
     .status-badge.verified { background: var(--green-bg); color: var(--green); }
     .status-badge.rejected { background: var(--red-bg); color: var(--red); }
     .status-badge.open { background: var(--yellow-bg); color: #92400E; }
+    body.dark-theme .status-badge.open { color: #FBBF24; }
     .status-badge.in_progress { background: var(--blue-bg); color: #1E40AF; }
+    body.dark-theme .status-badge.in_progress { color: #93C5FD; }
     .status-badge.resolved { background: var(--green-bg); color: var(--green); }
     .status-badge.closed { background: var(--border); color: var(--ink-soft); }
 
@@ -440,6 +471,8 @@ foreach ($reports as $r) {
       cursor: pointer;
     }
     .ticket-item:hover { background: var(--cream); }
+    body.dark-theme .ticket-item { background: rgba(255,255,255,0.04); }
+    body.dark-theme .ticket-item:hover { background: rgba(255,255,255,0.08); }
     .ticket-icon {
       width: 36px; height: 36px;
       border-radius: 10px;
@@ -479,7 +512,9 @@ foreach ($reports as $r) {
     }
     .priority-pill.urgent { background: var(--red-bg); color: var(--red); }
     .priority-pill.high   { background: var(--orange-bg); color: #9A3412; }
+    body.dark-theme .priority-pill.high { color: #FDBA74; }
     .priority-pill.medium { background: var(--yellow-bg); color: #92400E; }
+    body.dark-theme .priority-pill.medium { color: #FBBF24; }
     .priority-pill.low    { background: var(--green-bg); color: var(--green); }
 
     /* ─── Bottom row: Reports ─────────────────────────── */
@@ -498,6 +533,8 @@ foreach ($reports as $r) {
       transition: background .2s;
     }
     .report-item:hover { background: var(--cream); }
+    body.dark-theme .report-item { background: rgba(255,255,255,0.04); }
+    body.dark-theme .report-item:hover { background: rgba(255,255,255,0.08); }
     .report-icon {
       width: 36px; height: 36px;
       border-radius: 10px;
@@ -563,6 +600,12 @@ foreach ($reports as $r) {
     <li><a href="admin-users.php">Users</a></li>
     <li><a href="admin-courses.php">Courses</a></li>
     <li><a href="admin-verifications.php" class="active">Verifications</a></li>
+    <li>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
+        <span class="theme-toggle-icon" aria-hidden="true">D</span>
+        <span class="theme-toggle-text">Dark</span>
+      </button>
+    </li>
     <li><a href="../backend/logout.php" class="nav-cta">Log out</a></li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
@@ -574,6 +617,10 @@ foreach ($reports as $r) {
   <a href="admin-users.php">Users</a>
   <a href="admin-courses.php">Courses</a>
   <a href="admin-verifications.php" class="active">Verifications</a>
+  <button class="theme-toggle drawer-theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
+    <span class="theme-toggle-icon" aria-hidden="true">D</span>
+    <span class="theme-toggle-text">Dark theme</span>
+  </button>
   <a href="../backend/logout.php" class="drawer-cta">Log out</a>
 </nav>
 
@@ -806,14 +853,7 @@ foreach ($reports as $r) {
 <script>
 (function() {
   'use strict';
-  const hamburger = document.getElementById('hamburger');
-  const drawer = document.getElementById('drawer');
-  if (hamburger) {
-    hamburger.addEventListener('click', function() {
-      this.classList.toggle('open');
-      drawer.classList.toggle('open');
-    });
-  }
+  /* Hamburger already handled by script.js — no duplicate listener needed */
 })();
 
 function switchTab(btn, status) {
