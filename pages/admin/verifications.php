@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../backend/includes/functions.php';
+require_once __DIR__ . '/../../includes/functions.php';
 start_secure_session();
 
 $user = require_login('admin');
@@ -594,34 +594,34 @@ foreach ($reports as $r) {
 
 <!-- ─── NAVBAR ─────────────────────────────────────────────── -->
 <nav id="navbar" class="scrolled">
-  <a href="admin-dashboard.php" class="nav-logo">Law<span>able</span></a>
+  <a href="dashboard.php" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
-    <li><a href="admin-dashboard.php">Dashboard</a></li>
-    <li><a href="admin-users.php">Users</a></li>
-    <li><a href="admin-courses.php">Courses</a></li>
-    <li><a href="admin-verifications.php" class="active">Verifications</a></li>
+    <li><a href="dashboard.php">Dashboard</a></li>
+    <li><a href="users.php">Users</a></li>
+    <li><a href="courses.php">Courses</a></li>
+    <li><a href="verifications.php" class="active">Verifications</a></li>
     <li>
       <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
         <span class="theme-toggle-icon" aria-hidden="true">D</span>
         <span class="theme-toggle-text">Dark</span>
       </button>
     </li>
-    <li><a href="../api/logout.php" class="nav-cta">Log out</a></li>
+    <li><a href="../../api/logout.php" class="nav-cta">Log out</a></li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
     <span></span><span></span><span></span>
   </button>
 </nav>
 <nav class="nav-drawer" id="drawer">
-  <a href="admin-dashboard.php">Dashboard</a>
-  <a href="admin-users.php">Users</a>
-  <a href="admin-courses.php">Courses</a>
-  <a href="admin-verifications.php" class="active">Verifications</a>
+  <a href="dashboard.php">Dashboard</a>
+  <a href="users.php">Users</a>
+  <a href="courses.php">Courses</a>
+  <a href="verifications.php" class="active">Verifications</a>
   <button class="theme-toggle drawer-theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
     <span class="theme-toggle-icon" aria-hidden="true">D</span>
     <span class="theme-toggle-text">Dark theme</span>
   </button>
-  <a href="../api/logout.php" class="drawer-cta">Log out</a>
+  <a href="../../api/logout.php" class="drawer-cta">Log out</a>
 </nav>
 
 <!-- ─── PAGE ───────────────────────────────────────────────── -->
@@ -629,7 +629,7 @@ foreach ($reports as $r) {
 
   <div class="dash-header">
     <div class="dash-header-left">
-      <a href="admin-dashboard.php" class="back-link">← Dashboard</a>
+      <a href="dashboard.php" class="back-link">← Dashboard</a>
       <h1>Verifications & Oversight</h1>
     </div>
     <span class="course-count-badge" style="font-size:0.8rem;font-weight:600;color:var(--ink-soft);padding:0.35rem 0.85rem;background:var(--cream);border-radius:20px;white-space:nowrap;">
@@ -741,23 +741,23 @@ foreach ($reports as $r) {
                 <td>
                   <div class="verif-actions">
                     <?php if ($v['status'] === 'pending'): ?>
-                      <form method="post" action="../api/handle_verification.php" style="display:inline;">
+                      <form method="post" action="../../api/handle_verification.php" style="display:inline;">
                         <input type="hidden" name="doc_id" value="<?= (int) $v['id'] ?>" />
                         <input type="hidden" name="action" value="approve" />
                         <button type="submit" class="verif-btn approve">✓ Approve</button>
                       </form>
-                      <form method="post" action="../api/handle_verification.php" style="display:inline;">
+                      <form method="post" action="../../api/handle_verification.php" style="display:inline;">
                         <input type="hidden" name="doc_id" value="<?= (int) $v['id'] ?>" />
                         <input type="hidden" name="action" value="reject" />
                         <button type="submit" class="verif-btn reject">✕ Reject</button>
                       </form>
                     <?php elseif ($v['status'] === 'under_review'): ?>
-                      <form method="post" action="../api/handle_verification.php" style="display:inline;">
+                      <form method="post" action="../../api/handle_verification.php" style="display:inline;">
                         <input type="hidden" name="doc_id" value="<?= (int) $v['id'] ?>" />
                         <input type="hidden" name="action" value="approve" />
                         <button type="submit" class="verif-btn approve">✓ Approve</button>
                       </form>
-                      <form method="post" action="../api/handle_verification.php" style="display:inline;">
+                      <form method="post" action="../../api/handle_verification.php" style="display:inline;">
                         <input type="hidden" name="doc_id" value="<?= (int) $v['id'] ?>" />
                         <input type="hidden" name="action" value="reject" />
                         <button type="submit" class="verif-btn reject">✕ Reject</button>

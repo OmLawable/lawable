@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../backend/includes/functions.php';
+require_once __DIR__ . '/../includes/functions.php';
 start_secure_session();
 $user = current_user();
 $isLoggedIn = $user !== null;
@@ -378,7 +378,7 @@ function diffBg(string $diff): string {
 <button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
 <nav id="navbar">
-  <a href="<?= $isAdmin ? '../pages/admin-dashboard.php' : ($isLoggedIn ? '../home.php' : '../index.html') ?>" class="nav-logo">Law<span>able</span></a>
+  <a href="<?= $isAdmin ? 'admin/dashboard.php' : ($isLoggedIn ? 'dashboard.php' : '../index.php') ?>" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
     <li><a href="offerings.php">Offerings</a></li>
     <li><a href="courses.php" class="active">Courses</a></li>
@@ -386,7 +386,7 @@ function diffBg(string $diff): string {
     <li><a href="contact.php">Contact</a></li>
     <?php if ($isLoggedIn): ?>
     <?php if (!$isAdmin): ?>
-    <li class="nav-profile-item"><a href="../edit-profile.php" class="nav-profile" aria-label="Edit profile"><span aria-hidden="true">👤</span></a></li>
+    <li class="nav-profile-item"><a href="student/edit-profile.php" class="nav-profile" aria-label="Edit profile"><span aria-hidden="true">👤</span></a></li>
     <?php endif; ?>
     <li><a href="../api/logout.php" class="nav-cta">Log out</a></li>
     <?php else: ?>
@@ -408,7 +408,7 @@ function diffBg(string $diff): string {
   <a href="about.php" onclick="closeDrawer()">About</a>
   <a href="contact.php" onclick="closeDrawer()">Contact</a>
   <?php if ($isLoggedIn): ?>
-  <?php if (!$isAdmin): ?><a href="../edit-profile.php" onclick="closeDrawer()">Edit profile</a><?php endif; ?>
+  <?php if (!$isAdmin): ?><a href="student/edit-profile.php" onclick="closeDrawer()">Edit profile</a><?php endif; ?>
   <a href="../api/logout.php" class="drawer-cta">Log out</a>
   <?php else: ?>
   <a href="login.php" class="drawer-cta">Log in →</a>

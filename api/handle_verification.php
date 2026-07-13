@@ -6,7 +6,7 @@ start_secure_session();
 
 $user = require_login('admin');
 
-$redirectTo = 'pages/admin-dashboard.php';
+$redirectTo = 'pages/admin/dashboard.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     set_flash('error', 'Invalid request method.');

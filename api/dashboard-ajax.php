@@ -20,5 +20,5 @@ if ($action === 'dismiss_nudge') {
     json_response(['success' => true]);
 }
 
-// Default: show dashboard page
-require_once __DIR__ . '/auth/dashboard.php';
+// Default: invalid action
+json_response(['success' => false, 'message' => 'Invalid action.'], 400);

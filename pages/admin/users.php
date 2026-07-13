@@ -1,58 +1,52 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../backend/includes/functions.php';
+require_once __DIR__ . '/../../includes/functions.php';
 start_secure_session();
 
 $user = require_login('admin');
 
 $pdo = get_pdo();
 
-/* ── Fetch courses with organization names and enrollment counts ── */
+/* ── Combined users query: students + organizations ── */
 $stmt = $pdo->query("
     SELECT
-        c.id,
-        c.title,
-        c.description,
-        c.price,
-        c.status,
-        c.created_at,
-        c.updated_at,
-        o.organization_name,
-        COALESCE(e.enrollment_count, 0) AS enrollment_count
-    FROM courses c
-    LEFT JOIN organizations o ON c.organization_id = o.id
-    LEFT JOIN (
-        SELECT course_id, COUNT(*) AS enrollment_count
-        FROM course_enrollments
-        GROUP BY course_id
-    ) e ON c.id = e.course_id
-    ORDER BY c.created_at DESC
+        'student' AS type,
+        id,
+        name AS display_name,
+        username,
+        email,
+        phone,
+        status,
+        created_at
+    FROM students
+    UNION ALL
+    SELECT
+        'organization' AS type,
+        id,
+        organization_name AS display_name,
+        username,
+        email,
+        phone,
+        status,
+        created_at
+    FROM organizations
+    ORDER BY created_at DESC
 ");
-$all_courses = $stmt->fetchAll();
+$all_users = $stmt->fetchAll();
 
-/* Stats */
-$total_courses      = count($all_courses);
-$published_count    = 0;
-$draft_count        = 0;
-$archived_count     = 0;
-$total_enrollments  = 0;
-
-foreach ($all_courses as $course) {
-    switch ($course['status']) {
-        case 'published': $published_count++; break;
-        case 'draft':     $draft_count++;     break;
-        case 'archived':  $archived_count++;  break;
-    }
-    $total_enrollments += (int) $course['enrollment_count'];
-}
+/* Stats for page header */
+$total_students = (int) $pdo->query("SELECT COUNT(*) FROM students")->fetchColumn();
+$total_orgs = (int) $pdo->query("SELECT COUNT(*) FROM organizations")->fetchColumn();
+$total_users = $total_students + $total_orgs;
+$active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE status='active') + (SELECT COUNT(*) FROM organizations WHERE status='active')")->fetchColumn();
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Courses — Lawable Admin</title>
+  <title>Users — Lawable Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../assets/css/lawable.css" />
   <style>
@@ -76,8 +70,6 @@ foreach ($all_courses as $course) {
       --red-bg: #FEE2E2;
       --blue: #2563EB;
       --blue-bg: #DBEAFE;
-      --purple: #7C3AED;
-      --purple-bg: #EDE9FE;
       --nav-h: 68px;
       --radius: 12px;
       --radius-lg: 16px;
@@ -104,8 +96,6 @@ foreach ($all_courses as $course) {
       --red-bg: #450A0A;
       --blue: #60A5FA;
       --blue-bg: #1E3A5F;
-      --purple: #A78BFA;
-      --purple-bg: #3B2070;
       --shadow: 0 4px 24px rgba(0,0,0,0.40);
       --shadow-lg: 0 12px 40px rgba(0,0,0,0.50);
     }
@@ -173,7 +163,7 @@ foreach ($all_courses as $course) {
     /* ─── Mini stats row ───────────────────────────────── */
     .stat-row {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 1rem;
       margin-bottom: 1.5rem;
     }
@@ -184,28 +174,23 @@ foreach ($all_courses as $course) {
       box-shadow: var(--shadow);
       border: 1px solid rgba(229,224,216,0.5);
       transition: transform .2s, box-shadow .2s;
-      display: flex;
-      align-items: flex-start;
-      gap: 1rem;
     }
     .stat-card:hover {
       transform: translateY(-2px);
       box-shadow: var(--shadow-lg);
     }
     .stat-card-icon {
-      width: 44px; height: 44px;
+      width: 40px; height: 40px;
       border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.3rem;
-      flex-shrink: 0;
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
     }
-    .stat-card-icon.courses-all    { background: var(--purple-bg); }
-    .stat-card-icon.published      { background: var(--green-bg); }
-    .stat-card-icon.draft          { background: var(--yellow-bg); }
-    .stat-card-icon.enrollments    { background: var(--blue-bg); }
-    .stat-card-body {}
+    .stat-card-icon.users { background: #DBEAFE; }
+    .stat-card-icon.students { background: #DCFCE7; }
+    .stat-card-icon.orgs { background: #FEF3C7; }
     .stat-card-label {
       font-size: 0.8rem;
       font-weight: 500;
@@ -226,7 +211,7 @@ foreach ($all_courses as $course) {
     }
 
     /* ─── Filters / Search bar ─────────────────────────── */
-    .courses-toolbar {
+    .users-toolbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -239,14 +224,14 @@ foreach ($all_courses as $course) {
       border: 1px solid rgba(229,224,216,0.5);
       margin-bottom: 1.25rem;
     }
-    .courses-search {
+    .users-search {
       display: flex;
       align-items: center;
       gap: 0.5rem;
       flex: 1;
       min-width: 200px;
     }
-    .courses-search input {
+    .users-search input {
       flex: 1;
       padding: 0.6rem 0.85rem;
       border: 1.5px solid var(--border);
@@ -258,19 +243,19 @@ foreach ($all_courses as $course) {
       outline: none;
       transition: border-color .2s, box-shadow .2s;
     }
-    .courses-search input:focus {
+    .users-search input:focus {
       border-color: var(--gold);
       box-shadow: 0 0 0 3px rgba(201,147,58,0.12);
     }
-    .courses-search input::placeholder {
+    .users-search input::placeholder {
       color: var(--ink-soft);
     }
-    .courses-filters {
+    .users-filters {
       display: flex;
       align-items: center;
       gap: 0.5rem;
     }
-    .courses-filters select {
+    .users-filters select {
       appearance: none;
       background: var(--white);
       border: 1.5px solid var(--border);
@@ -286,12 +271,12 @@ foreach ($all_courses as $course) {
       background-position: right 0.65rem center;
       transition: border-color .2s;
     }
-    .courses-filters select:focus {
+    .users-filters select:focus {
       outline: none;
       border-color: var(--gold);
     }
 
-    .course-count-badge {
+    .user-count-badge {
       font-size: 0.8rem;
       font-weight: 600;
       color: var(--ink-soft);
@@ -301,25 +286,25 @@ foreach ($all_courses as $course) {
       white-space: nowrap;
     }
 
-    /* ─── Courses Table ────────────────────────────────── */
-    .courses-card {
+    /* ─── Users Table ──────────────────────────────────── */
+    .users-card {
       background: var(--white);
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow);
       border: 1px solid rgba(229,224,216,0.5);
       overflow: hidden;
     }
-    .courses-table {
+    .users-table {
       width: 100%;
       border-collapse: collapse;
     }
-    .courses-table thead {
+    .users-table thead {
       background: #FAFAF8;
     }
-    body.dark-theme .courses-table thead {
+    body.dark-theme .users-table thead {
       background: rgba(255,255,255,0.04);
     }
-    .courses-table th {
+    .users-table th {
       text-align: left;
       font-size: 0.7rem;
       font-weight: 600;
@@ -329,68 +314,78 @@ foreach ($all_courses as $course) {
       padding: 1rem 1.25rem;
       border-bottom: 1px solid var(--border);
     }
-    .courses-table td {
+    .users-table td {
       padding: 0.9rem 1.25rem;
       border-bottom: 1px solid rgba(229,224,216,0.4);
       font-size: 0.85rem;
       color: var(--ink-mid);
       vertical-align: middle;
     }
-    .courses-table tbody tr {
+    .users-table tbody tr {
       transition: background .15s;
     }
-    .courses-table tbody tr:hover {
+    .users-table tbody tr:hover {
       background: var(--cream);
     }
-    .courses-table tbody tr:last-child td {
+    .users-table tbody tr:last-child td {
       border-bottom: none;
     }
 
-    /* Course entity (icon + title/desc) */
-    .course-entity {
+    /* User entity (avatar + name/email) */
+    .user-entity {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       gap: 0.75rem;
     }
-    .course-thumb-icon {
-      width: 40px; height: 40px;
-      border-radius: 10px;
+    .user-avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.1rem;
+      font-size: 0.75rem;
+      font-weight: 600;
       flex-shrink: 0;
-      background: var(--gold-lt);
     }
-    .course-info {}
-    .course-title {
+    .user-avatar.student {
+      background: var(--blue-bg);
+      color: var(--blue);
+    }
+    .user-avatar.org {
+      background: var(--gold-lt);
+      color: var(--gold-dk);
+    }
+    body.dark-theme .user-avatar.student { background: #1E3A5F; color: #93C5FD; }
+    body.dark-theme .user-avatar.org { background: #422006; color: #F0C56D; }
+    .user-info {}
+    .user-name {
       font-weight: 600;
       color: var(--ink);
       display: block;
-      line-height: 1.3;
     }
-    .course-desc {
+    .user-email {
       font-size: 0.75rem;
       color: var(--ink-soft);
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      line-height: 1.4;
-      margin-top: 0.15rem;
     }
 
-    /* Price badge */
-    .price-badge {
-      font-weight: 700;
-      font-family: 'Playfair Display', serif;
-      font-size: 0.95rem;
-      color: var(--ink);
+    /* Type badge */
+    .type-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
       white-space: nowrap;
     }
-    .price-badge.free {
-      color: var(--green);
-      font-size: 0.8rem;
+    .type-badge.student {
+      background: var(--blue-bg);
+      color: var(--blue);
+    }
+    .type-badge.org {
+      background: var(--yellow-bg);
+      color: #92400E;
     }
 
     /* Status badge */
@@ -404,58 +399,14 @@ foreach ($all_courses as $course) {
       border-radius: 20px;
       white-space: nowrap;
     }
-    .status-badge.published {
+    .status-badge.active {
       background: var(--green-bg);
       color: var(--green);
     }
-    .status-badge.draft {
-      background: var(--yellow-bg);
-      color: #92400E;
-    }
-    .status-badge.archived {
+    .status-badge.inactive {
       background: var(--red-bg);
       color: var(--red);
     }
-
-    .org-name {
-      font-size: 0.8rem;
-      color: var(--ink-soft);
-    }
-    .org-name strong {
-      color: var(--ink-mid);
-    }
-
-    .enroll-count {
-      font-weight: 600;
-      font-size: 0.9rem;
-      color: var(--ink);
-    }
-
-    /* Action buttons */
-    .course-actions {
-      display: flex;
-      gap: 0.4rem;
-    }
-    .course-btn {
-      padding: 0.3rem 0.65rem;
-      border-radius: 6px;
-      font-size: 0.72rem;
-      font-weight: 600;
-      border: none;
-      cursor: pointer;
-      transition: opacity .2s, transform .15s;
-      font-family: 'Inter', sans-serif;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.2rem;
-    }
-    .course-btn:hover {
-      opacity: 0.8;
-      transform: translateY(-1px);
-    }
-    .course-btn.view   { background: var(--blue-bg); color: var(--blue); }
-    .course-btn.edit   { background: var(--gold-lt); color: var(--gold-dk); }
 
     /* Empty state */
     .empty-state {
@@ -473,24 +424,22 @@ foreach ($all_courses as $course) {
 
     /* ─── Responsive ───────────────────────────────────── */
     @media (max-width: 1100px) {
-      .stat-row { grid-template-columns: repeat(2, 1fr); }
+      .stat-row { grid-template-columns: repeat(3, 1fr); }
     }
     @media (max-width: 768px) {
       .dash-header { padding: 0 1rem; }
       .dash-content { padding: 0 1rem 2rem; }
-      .stat-row { grid-template-columns: repeat(2, 1fr); }
-      .courses-toolbar { flex-direction: column; align-items: stretch; }
-      .courses-search { min-width: 0; }
-      .courses-filters { flex-wrap: wrap; }
-      .courses-table th:nth-child(3),
-      .courses-table td:nth-child(3) { display: none; }
-      .courses-table th:nth-child(5),
-      .courses-table td:nth-child(5) { display: none; }
+      .stat-row { grid-template-columns: repeat(3, 1fr); }
+      .users-toolbar { flex-direction: column; align-items: stretch; }
+      .users-search { min-width: 0; }
+      .users-filters { flex-wrap: wrap; }
+      .users-table th:nth-child(4),
+      .users-table td:nth-child(4) { display: none; }
     }
     @media (max-width: 500px) {
       .stat-row { grid-template-columns: 1fr; }
-      .courses-table th:nth-child(4),
-      .courses-table td:nth-child(4) { display: none; }
+      .users-table th:nth-child(3),
+      .users-table td:nth-child(3) { display: none; }
     }
   </style>
 </head>
@@ -498,34 +447,34 @@ foreach ($all_courses as $course) {
 
 <!-- ─── NAVBAR ─────────────────────────────────────────────── -->
 <nav id="navbar" class="scrolled">
-  <a href="admin-dashboard.php" class="nav-logo">Law<span>able</span></a>
+  <a href="dashboard.php" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
-    <li><a href="admin-dashboard.php">Dashboard</a></li>
-    <li><a href="admin-users.php">Users</a></li>
-    <li><a href="admin-courses.php" class="active">Courses</a></li>
-    <li><a href="admin-verifications.php">Verifications</a></li>
+    <li><a href="dashboard.php">Dashboard</a></li>
+    <li><a href="users.php" class="active">Users</a></li>
+    <li><a href="courses.php">Courses</a></li>
+    <li><a href="verifications.php">Verifications</a></li>
     <li>
       <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
         <span class="theme-toggle-icon" aria-hidden="true">D</span>
         <span class="theme-toggle-text">Dark</span>
       </button>
     </li>
-    <li><a href="../api/logout.php" class="nav-cta">Log out</a></li>
+    <li><a href="../../api/logout.php" class="nav-cta">Log out</a></li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
     <span></span><span></span><span></span>
   </button>
 </nav>
 <nav class="nav-drawer" id="drawer">
-  <a href="admin-dashboard.php">Dashboard</a>
-  <a href="admin-users.php">Users</a>
-  <a href="admin-courses.php">Courses</a>
-  <a href="admin-verifications.php">Verifications</a>
+  <a href="dashboard.php">Dashboard</a>
+  <a href="users.php" class="active">Users</a>
+  <a href="courses.php">Courses</a>
+  <a href="verifications.php">Verifications</a>
   <button class="theme-toggle drawer-theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
     <span class="theme-toggle-icon" aria-hidden="true">D</span>
     <span class="theme-toggle-text">Dark theme</span>
   </button>
-  <a href="../api/logout.php" class="drawer-cta">Log out</a>
+  <a href="../../api/logout.php" class="drawer-cta">Log out</a>
 </nav>
 
 <!-- ─── PAGE ───────────────────────────────────────────────── -->
@@ -534,10 +483,10 @@ foreach ($all_courses as $course) {
   <!-- Header -->
   <div class="dash-header">
     <div class="dash-header-left">
-      <a href="admin-dashboard.php" class="back-link">← Dashboard</a>
-      <h1>Courses</h1>
+      <a href="dashboard.php" class="back-link">← Dashboard</a>
+      <h1>Users</h1>
     </div>
-    <span class="course-count-badge"><?= number_format($total_courses) ?> total</span>
+    <span class="user-count-badge"><?= number_format($total_users) ?> total</span>
   </div>
 
   <div class="dash-content">
@@ -545,138 +494,100 @@ foreach ($all_courses as $course) {
     <!-- Mini stats -->
     <div class="stat-row">
       <div class="stat-card">
-        <div class="stat-card-icon courses-all">📚</div>
-        <div class="stat-card-body">
-          <div class="stat-card-label">Total Courses</div>
-          <div class="stat-card-value"><?= number_format($total_courses) ?></div>
-          <div class="stat-card-sub">
-            <?= number_format($published_count) ?> published
-            <?= $draft_count > 0 ? '· '.number_format($draft_count).' draft' : '' ?>
-            <?= $archived_count > 0 ? '· '.number_format($archived_count).' archived' : '' ?>
-          </div>
-        </div>
+        <div class="stat-card-icon users">👥</div>
+        <div class="stat-card-label">Total Users</div>
+        <div class="stat-card-value"><?= number_format($total_users) ?></div>
+        <div class="stat-card-sub"><?= number_format($active_users) ?> active</div>
       </div>
       <div class="stat-card">
-        <div class="stat-card-icon published">✓</div>
-        <div class="stat-card-body">
-          <div class="stat-card-label">Published</div>
-          <div class="stat-card-value" style="color:var(--green);"><?= number_format($published_count) ?></div>
-          <div class="stat-card-sub">Active & available</div>
-        </div>
+        <div class="stat-card-icon students">🎓</div>
+        <div class="stat-card-label">Students</div>
+        <div class="stat-card-value"><?= number_format($total_students) ?></div>
       </div>
       <div class="stat-card">
-        <div class="stat-card-icon draft">✎</div>
-        <div class="stat-card-body">
-          <div class="stat-card-label">Drafts</div>
-          <div class="stat-card-value" style="color:#92400E;"><?= number_format($draft_count) ?></div>
-          <div class="stat-card-sub">Awaiting publishing</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card-icon enrollments">🎓</div>
-        <div class="stat-card-body">
-          <div class="stat-card-label">Total Enrollments</div>
-          <div class="stat-card-value"><?= number_format($total_enrollments) ?></div>
-          <div class="stat-card-sub">Across all courses</div>
-        </div>
+        <div class="stat-card-icon orgs">🏛</div>
+        <div class="stat-card-label">Organizations</div>
+        <div class="stat-card-value"><?= number_format($total_orgs) ?></div>
       </div>
     </div>
 
     <!-- Toolbar: search + filters -->
-    <div class="courses-toolbar">
-      <div class="courses-search">
-        <input type="text" id="searchInput" placeholder="Search courses by title, organization…" oninput="filterTable()" />
+    <div class="users-toolbar">
+      <div class="users-search">
+        <input type="text" id="searchInput" placeholder="Search by name, email, or username…" oninput="filterTable()" />
       </div>
-      <div class="courses-filters">
+      <div class="users-filters">
+        <select id="typeFilter" onchange="filterTable()">
+          <option value="all">All types</option>
+          <option value="student">Students</option>
+          <option value="organization">Organizations</option>
+        </select>
         <select id="statusFilter" onchange="filterTable()">
           <option value="all">All status</option>
-          <option value="published">Published</option>
-          <option value="draft">Draft</option>
-          <option value="archived">Archived</option>
-        </select>
-        <select id="priceFilter" onchange="filterTable()">
-          <option value="all">All prices</option>
-          <option value="free">Free</option>
-          <option value="paid">Paid</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
         </select>
       </div>
     </div>
 
-    <!-- Courses table -->
-    <div class="courses-card">
-      <table class="courses-table">
+    <!-- Users table -->
+    <div class="users-card">
+      <table class="users-table">
         <thead>
           <tr>
-            <th>Course</th>
-            <th>Organization</th>
-            <th>Price</th>
+            <th>User</th>
+            <th>Username</th>
+            <th>Type</th>
             <th>Status</th>
-            <th>Enrollments</th>
-            <th>Created</th>
-            <th>Actions</th>
+            <th>Joined</th>
           </tr>
         </thead>
-        <tbody id="coursesBody">
-          <?php if (empty($all_courses)): ?>
+        <tbody id="usersBody">
+          <?php if (empty($all_users)): ?>
             <tr>
-              <td colspan="7">
+              <td colspan="5">
                 <div class="empty-state">
-                  <div class="empty-state-icon">📚</div>
-                  <div class="empty-state-text">No courses found.</div>
+                  <div class="empty-state-icon">👥</div>
+                  <div class="empty-state-text">No users found.</div>
                 </div>
               </td>
             </tr>
           <?php else: ?>
-            <?php foreach ($all_courses as $c): ?>
+            <?php foreach ($all_users as $u): ?>
               <?php
-                $is_free = (float) $c['price'] <= 0;
-                $org_display = !empty($c['organization_name'])
-                  ? e($c['organization_name'])
-                  : '<span style="color:var(--ink-soft);font-style:italic;">Platform</span>';
-                $date_created = date('M j, Y', strtotime($c['created_at']));
+                $is_student = $u['type'] === 'student';
+                $avatar_initials = $is_student
+                  ? strtoupper(substr($u['display_name'], 0, 2))
+                  : strtoupper(substr($u['display_name'], 0, 2));
               ?>
-              <tr class="course-row"
-                  data-status="<?= e($c['status']) ?>"
-                  data-price="<?= $is_free ? 'free' : 'paid' ?>"
-                  data-search="<?= e(strtolower($c['title'] . ' ' . ($c['organization_name'] ?? ''))) ?>">
+              <tr class="user-row"
+                  data-type="<?= e($u['type']) ?>"
+                  data-status="<?= e($u['status']) ?>"
+                  data-search="<?= e(strtolower($u['display_name'] . ' ' . $u['email'] . ' ' . $u['username'])) ?>">
                 <td>
-                  <div class="course-entity">
-                    <div class="course-thumb-icon">⚖</div>
-                    <div class="course-info">
-                      <span class="course-title"><?= e($c['title']) ?></span>
-                      <?php if (!empty($c['description'])): ?>
-                        <span class="course-desc"><?= e(mb_substr($c['description'], 0, 100)) ?><?= mb_strlen($c['description']) > 100 ? '…' : '' ?></span>
-                      <?php endif; ?>
+                  <div class="user-entity">
+                    <div class="user-avatar <?= $is_student ? 'student' : 'org' ?>">
+                      <?= $avatar_initials ?>
+                    </div>
+                    <div class="user-info">
+                      <span class="user-name"><?= e($u['display_name']) ?></span>
+                      <span class="user-email"><?= e($u['email']) ?></span>
                     </div>
                   </div>
                 </td>
-                <td><span class="org-name"><?= $org_display ?></span></td>
+                <td><span style="color:var(--ink-soft);font-size:0.8rem;">@<?= e($u['username']) ?></span></td>
                 <td>
-                  <span class="price-badge <?= $is_free ? 'free' : '' ?>">
-                    <?= $is_free ? 'Free' : '₹'.number_format((float)$c['price']) ?>
+                  <span class="type-badge <?= $is_student ? 'student' : 'org' ?>">
+                    <?= $is_student ? '🎓 Student' : '🏛 Organization' ?>
                   </span>
                 </td>
                 <td>
-                  <span class="status-badge <?= e($c['status']) ?>">
-                    <?= match($c['status']) {
-                      'published' => '✓ Published',
-                      'draft'     => '✎ Draft',
-                      'archived'  => '✕ Archived',
-                      default     => e($c['status'])
-                    } ?>
+                  <span class="status-badge <?= e($u['status']) ?>">
+                    <?= $u['status'] === 'active' ? '✓' : '✕' ?> <?= ucfirst(e($u['status'])) ?>
                   </span>
-                </td>
-                <td>
-                  <span class="enroll-count"><?= number_format((int)$c['enrollment_count']) ?></span>
                 </td>
                 <td style="white-space:nowrap;font-size:0.8rem;color:var(--ink-soft);">
-                  <?= $date_created ?>
-                </td>
-                <td>
-                  <div class="course-actions">
-                    <a href="#" class="course-btn view">👁 View</a>
-                    <a href="#" class="course-btn edit">✎ Edit</a>
-                  </div>
+                  <?= date('M j, Y', strtotime($u['created_at'])) ?>
                 </td>
               </tr>
             <?php endforeach; ?>
@@ -699,20 +610,20 @@ foreach ($all_courses as $course) {
 /* ── Filter table ── */
 function filterTable() {
   const search = document.getElementById('searchInput').value.toLowerCase().trim();
+  const type = document.getElementById('typeFilter').value;
   const status = document.getElementById('statusFilter').value;
-  const price  = document.getElementById('priceFilter').value;
-  const rows   = document.querySelectorAll('.course-row');
+  const rows = document.querySelectorAll('.user-row');
 
   rows.forEach(function(row) {
+    const rowType = row.getAttribute('data-type');
     const rowStatus = row.getAttribute('data-status');
-    const rowPrice  = row.getAttribute('data-price');
     const rowSearch = row.getAttribute('data-search');
 
+    const matchType = type === 'all' || rowType === type;
     const matchStatus = status === 'all' || rowStatus === status;
-    const matchPrice  = price === 'all' || rowPrice === price;
     const matchSearch = !search || rowSearch.indexOf(search) !== -1;
 
-    row.style.display = (matchStatus && matchPrice && matchSearch) ? '' : 'none';
+    row.style.display = (matchType && matchStatus && matchSearch) ? '' : 'none';
   });
 }
 </script>

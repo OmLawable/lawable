@@ -77,9 +77,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Role-based redirect
         $redirectUrl = match ($role) {
-            'admin' => 'pages/admin-dashboard.php',
-            'organization' => 'home.php',
-            default => 'home.php',
+            'admin' => 'pages/admin/dashboard.php',
+            'organization' => 'pages/dashboard.php',
+            default => 'pages/dashboard.php',
         };
 
         if ($isAjax) {
@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 if ($isAjax) {
         if ($success) {
-            json_response(['success' => true, 'message' => $success, 'redirect' => '/lawable/home.php']);
+            json_response(['success' => true, 'message' => $success, 'redirect' => '/lawable/pages/dashboard.php']);
         }
     json_response(['success' => false, 'message' => $errors[0] ?? 'Login failed.'], 400);
 }

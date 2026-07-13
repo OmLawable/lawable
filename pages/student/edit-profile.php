@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/../../includes/functions.php';
 start_secure_session();
 
 $user = require_login('user');
@@ -264,18 +264,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body class="profile-page">
 <nav id="navbar">
-  <a href="home.php" class="nav-logo">Law<span>able</span></a>
+  <a href="../dashboard.php" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
-    <li><a href="pages/offerings.php">Offerings</a></li>
-    <li><a href="pages/courses.php">Courses</a></li>
-    <li><a href="pages/about.php">About</a></li>
-    <li><a href="pages/contact.php">Contact</a></li>
+    <li><a href="../offerings.php">Offerings</a></li>
+    <li><a href="../courses.php">Courses</a></li>
+    <li><a href="../about.php">About</a></li>
+    <li><a href="../contact.php">Contact</a></li>
     <li class="nav-profile-item">
       <a href="edit-profile.php" class="nav-profile active" aria-label="Edit profile">
         <span aria-hidden="true">👤</span>
       </a>
     </li>
-    <li><a href="api/logout.php" class="nav-cta">Log out</a></li>
+    <li><a href="../../api/logout.php" class="nav-cta">Log out</a></li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
     <span></span><span></span><span></span>
@@ -283,12 +283,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </nav>
 
 <nav class="nav-drawer" id="drawer">
-  <a href="pages/offerings.php" onclick="closeDrawer()">Offerings</a>
-  <a href="pages/courses.php" onclick="closeDrawer()">Courses</a>
-  <a href="pages/about.php" onclick="closeDrawer()">About</a>
-  <a href="pages/contact.php" onclick="closeDrawer()">Contact</a>
+  <a href="../offerings.php" onclick="closeDrawer()">Offerings</a>
+  <a href="../courses.php" onclick="closeDrawer()">Courses</a>
+  <a href="../about.php" onclick="closeDrawer()">About</a>
+  <a href="../contact.php" onclick="closeDrawer()">Contact</a>
   <a href="edit-profile.php" onclick="closeDrawer()">Edit profile</a>
-  <a href="api/logout.php" class="drawer-cta">Log out</a>
+  <a href="../../api/logout.php" class="drawer-cta">Log out</a>
 </nav>
 
 <main class="profile-shell">
@@ -406,7 +406,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           </div>
 
           <div class="profile-actions">
-            <a href="home.php" class="btn-ghost">Cancel</a>
+            <a href="../dashboard.php" class="btn-ghost">Cancel</a>
             <button type="submit" class="btn-primary">Update</button>
           </div>
         </div>

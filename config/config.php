@@ -14,18 +14,7 @@ declare(strict_types=1);
  * config/ subfolder. Adjust the list below to match your real layout
  * if needed.
  */
-$possibleDatabaseConfigPaths = [
-    __DIR__ . '/../config/database.php',
-    __DIR__ . '/database.php',
-    __DIR__ . '/../database.php',
-];
-
-foreach ($possibleDatabaseConfigPaths as $databaseConfigPath) {
-    if (file_exists($databaseConfigPath)) {
-        require_once $databaseConfigPath;
-        break;
-    }
-}
+require_once __DIR__ . '/database.php';
 
 if (!defined('DB_HOST')) {
     define('DB_HOST', 'localhost');
