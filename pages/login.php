@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../backend/includes/functions.php';
+require_once __DIR__ . '/../includes/functions.php';
 start_secure_session();
 
 // If already logged in, redirect to home
@@ -793,7 +793,7 @@ $turnstileSiteKey = get_turnstile_site_key();
       });
 
       try {
-        const res = await fetch('../backend/login.php', {
+        const res = await fetch('../api/login.php', {
           method: 'POST',
           headers: { 'X-Requested-With': 'XMLHttpRequest' },
           body,
@@ -850,8 +850,8 @@ $turnstileSiteKey = get_turnstile_site_key();
       btn.textContent = 'Creating account…';
 
       const endpoint = role === 'organization'
-        ? '../backend/register_organization.php'
-        : '../backend/register_user.php';
+        ? '../api/register_organization.php'
+        : '../api/register_user.php';
 
       const body = new URLSearchParams({
         name: $('su-name').value.trim(),

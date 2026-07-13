@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/backend/includes/functions.php';
+require_once __DIR__ . '/includes/functions.php';
 start_secure_session();
 
 if (!is_logged_in()) {
@@ -910,7 +910,7 @@ if (!$is_org) {
         <span class="theme-toggle-text">Dark</span>
       </button>
     </li>
-    <li><a href="backend/logout.php" class="nav-cta">Log out</a></li>
+    <li><a href="api/logout.php" class="nav-cta">Log out</a></li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
     <span></span><span></span><span></span>
@@ -929,7 +929,7 @@ if (!$is_org) {
     <span class="theme-toggle-icon" aria-hidden="true">D</span>
     <span class="theme-toggle-text">Dark theme</span>
   </button>
-  <a href="backend/logout.php" class="drawer-cta">Log out</a>
+  <a href="api/logout.php" class="drawer-cta">Log out</a>
 </nav>
 
 <!-- ─── DASHBOARD PAGE ────────────────────────────────────────── -->

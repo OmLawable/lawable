@@ -34,7 +34,7 @@ $isAdmin = $isLoggedIn && ($user['role'] ?? '') === 'admin';
       </a>
     </li>
     <?php endif; ?>
-    <li><a href="../backend/logout.php" class="nav-cta">Log out</a></li>
+    <li><a href="../api/logout.php" class="nav-cta">Log out</a></li>
     <?php else: ?>
     <li><a href="login.php" class="nav-cta">Log in →</a></li>
     <?php endif; ?>
@@ -59,7 +59,7 @@ $isAdmin = $isLoggedIn && ($user['role'] ?? '') === 'admin';
   <?php if (!$isAdmin): ?>
   <a href="../edit-profile.php" onclick="closeDrawer()">Edit profile</a>
   <?php endif; ?>
-  <a href="../backend/logout.php" class="drawer-cta">Log out</a>
+  <a href="../api/logout.php" class="drawer-cta">Log out</a>
   <?php else: ?>
   <a href="login.php" class="drawer-cta">Log in →</a>
   <?php endif; ?>

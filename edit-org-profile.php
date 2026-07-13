@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/backend/includes/functions.php';
+require_once __DIR__ . '/includes/functions.php';
 
 start_secure_session();
 require_login('organization');
@@ -225,7 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <span aria-hidden="true">🏢</span>
       </a>
     </li>
-    <li><a href="backend/logout.php" class="nav-cta">Log out</a></li>
+    <li><a href="api/logout.php" class="nav-cta">Log out</a></li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
     <span></span><span></span><span></span>
@@ -238,7 +238,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <a href="pages/about.php" onclick="closeDrawer()">About</a>
   <a href="pages/contact.php" onclick="closeDrawer()">Contact</a>
   <a href="edit-org-profile.php" onclick="closeDrawer()">Edit profile</a>
-  <a href="backend/logout.php" class="drawer-cta">Log out</a>
+  <a href="api/logout.php" class="drawer-cta">Log out</a>
 </nav>
 
 <main class="profile-shell">

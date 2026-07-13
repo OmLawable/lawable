@@ -388,7 +388,7 @@ function diffBg(string $diff): string {
     <?php if (!$isAdmin): ?>
     <li class="nav-profile-item"><a href="../edit-profile.php" class="nav-profile" aria-label="Edit profile"><span aria-hidden="true">👤</span></a></li>
     <?php endif; ?>
-    <li><a href="../backend/logout.php" class="nav-cta">Log out</a></li>
+    <li><a href="../api/logout.php" class="nav-cta">Log out</a></li>
     <?php else: ?>
     <li><a href="login.php" class="nav-cta">Log in →</a></li>
     <?php endif; ?>
@@ -409,7 +409,7 @@ function diffBg(string $diff): string {
   <a href="contact.php" onclick="closeDrawer()">Contact</a>
   <?php if ($isLoggedIn): ?>
   <?php if (!$isAdmin): ?><a href="../edit-profile.php" onclick="closeDrawer()">Edit profile</a><?php endif; ?>
-  <a href="../backend/logout.php" class="drawer-cta">Log out</a>
+  <a href="../api/logout.php" class="drawer-cta">Log out</a>
   <?php else: ?>
   <a href="login.php" class="drawer-cta">Log in →</a>
   <?php endif; ?>
@@ -535,7 +535,7 @@ function diffBg(string $diff): string {
     btn.style.pointerEvents = 'none';
 
     var xhr = new XMLHttpRequest();
-    xhr.open('POST', '../backend/enroll.php', true);
+    xhr.open('POST', '../api/enroll.php', true);
     xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
     xhr.onload = function() {
       if (xhr.status === 200) {

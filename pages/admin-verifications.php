@@ -606,7 +606,7 @@ foreach ($reports as $r) {
         <span class="theme-toggle-text">Dark</span>
       </button>
     </li>
-    <li><a href="../backend/logout.php" class="nav-cta">Log out</a></li>
+    <li><a href="../api/logout.php" class="nav-cta">Log out</a></li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
     <span></span><span></span><span></span>
@@ -621,7 +621,7 @@ foreach ($reports as $r) {
     <span class="theme-toggle-icon" aria-hidden="true">D</span>
     <span class="theme-toggle-text">Dark theme</span>
   </button>
-  <a href="../backend/logout.php" class="drawer-cta">Log out</a>
+  <a href="../api/logout.php" class="drawer-cta">Log out</a>
 </nav>
 
 <!-- ─── PAGE ───────────────────────────────────────────────── -->
@@ -741,23 +741,23 @@ foreach ($reports as $r) {
                 <td>
                   <div class="verif-actions">
                     <?php if ($v['status'] === 'pending'): ?>
-                      <form method="post" action="../backend/handle_verification.php" style="display:inline;">
+                      <form method="post" action="../api/handle_verification.php" style="display:inline;">
                         <input type="hidden" name="doc_id" value="<?= (int) $v['id'] ?>" />
                         <input type="hidden" name="action" value="approve" />
                         <button type="submit" class="verif-btn approve">✓ Approve</button>
                       </form>
-                      <form method="post" action="../backend/handle_verification.php" style="display:inline;">
+                      <form method="post" action="../api/handle_verification.php" style="display:inline;">
                         <input type="hidden" name="doc_id" value="<?= (int) $v['id'] ?>" />
                         <input type="hidden" name="action" value="reject" />
                         <button type="submit" class="verif-btn reject">✕ Reject</button>
                       </form>
                     <?php elseif ($v['status'] === 'under_review'): ?>
-                      <form method="post" action="../backend/handle_verification.php" style="display:inline;">
+                      <form method="post" action="../api/handle_verification.php" style="display:inline;">
                         <input type="hidden" name="doc_id" value="<?= (int) $v['id'] ?>" />
                         <input type="hidden" name="action" value="approve" />
                         <button type="submit" class="verif-btn approve">✓ Approve</button>
                       </form>
-                      <form method="post" action="../backend/handle_verification.php" style="display:inline;">
+                      <form method="post" action="../api/handle_verification.php" style="display:inline;">
                         <input type="hidden" name="doc_id" value="<?= (int) $v['id'] ?>" />
                         <input type="hidden" name="action" value="reject" />
                         <button type="submit" class="verif-btn reject">✕ Reject</button>
