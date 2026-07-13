@@ -61,14 +61,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':email' => $email,
             ':password_hash' => $passwordHash,
             ':phone' => $phone ?: null,
-            ':status' => 'active',
+            ':status' => 'inactive',
+        ]);
+
+        $orgId = (int) $pdo->lastInsertId();
+
+        // Auto-create a verification document so it appears in admin panel
+        $stmt = $pdo->prepare('INSERT INTO verification_documents (organization_id, document_type, status, submitted_at) VALUES (:oid, :type, :status, NOW())');
+        $stmt->execute([
+            ':oid' => $orgId,
+            ':type' => 'registration',
+            ':status' => 'pending',
         ]);
 
         if ($isAjax) {
-            json_response(['success' => true, 'message' => 'Organization registration successful. You can now log in.']);
+            json_response(['success' => true, 'message' => 'Registration submitted. Your organization is pending admin approval. You will be able to log in once verified.']);
         }
 
-        $success = 'Organization registration successful. You can now log in.';
+        $success = 'Registration submitted. Your organization is pending admin approval. You will be able to log in once verified.';
     } catch (RuntimeException $exception) {
         $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
         if ($isAjax) {

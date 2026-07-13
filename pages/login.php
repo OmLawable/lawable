@@ -573,9 +573,9 @@ $turnstileSiteKey = get_turnstile_site_key();
 
         <div class="field">
           <label>Verify you're human</label>
-          <div class="turnstile-wrap" id="su-turnstile-widget" data-sitekey="<?= e($turnstileSiteKey) ?>">
+      <div class="turnstile-wrap" id="su-turnstile-widget" data-sitekey="<?= e($turnstileSiteKey) ?>">
             <?php if ($turnstileSiteKey): ?>
-              <div class="cf-turnstile" data-sitekey="<?= e($turnstileSiteKey) ?>" data-theme="light" data-callback="onTurnstileSuccess" data-expired-callback="onTurnstileExpired" data-error-callback="onTurnstileError"></div>
+              <div id="su-turnstile-container"></div>
             <?php else: ?>
               <p class="field-status">Turnstile is not configured yet. Add your site key in C:\\xampp\\lawable-secrets.php.</p>
             <?php endif; ?>
@@ -625,6 +625,42 @@ $turnstileSiteKey = get_turnstile_site_key();
     const panels = qsa('.form-panel');
     const formTitle = $('formTitle');
     const formSub = $('formSub');
+    let suTurnstileWidgetId = null;
+
+    function renderSuTurnstile() {
+      const container = $('su-turnstile-container');
+      const siteKey = $('su-turnstile-widget')?.dataset.sitekey;
+      if (!container || !siteKey || suTurnstileWidgetId) return;
+      try {
+        suTurnstileWidgetId = turnstile.render('#su-turnstile-container', {
+          sitekey: siteKey,
+          callback: (token) => {
+            const input = $('su-turnstile-token');
+            if (input) input.value = token;
+          },
+          'expired-callback': () => {
+            const input = $('su-turnstile-token');
+            if (input) input.value = '';
+          },
+          'error-callback': () => {
+            const input = $('su-turnstile-token');
+            if (input) input.value = '';
+          },
+        });
+      } catch (e) {
+        // Turnstile script might not be loaded yet — retry once
+        setTimeout(() => { try { renderSuTurnstile(); } catch(e) {} }, 500);
+      }
+    }
+
+    function resetSuTurnstile() {
+      if (suTurnstileWidgetId) {
+        try { turnstile.reset(suTurnstileWidgetId); } catch(e) {}
+        suTurnstileWidgetId = null;
+      }
+      const container = $('su-turnstile-container');
+      if (container) container.innerHTML = '';
+    }
 
     function switchTab(target) {
       tabButtons.forEach(b => b.classList.toggle('active', b.dataset.target === target));
@@ -632,9 +668,11 @@ $turnstileSiteKey = get_turnstile_site_key();
       if (target === 'signin') {
         formTitle.textContent = 'Sign in to Lawable';
         formSub.textContent = 'Pick up your courses right where you left off.';
+        resetSuTurnstile();
       } else {
         formTitle.textContent = 'Create your account';
         formSub.textContent = 'Join Lawable as a student or register your organization.';
+        renderSuTurnstile();
       }
     }
 
@@ -786,14 +824,15 @@ $turnstileSiteKey = get_turnstile_site_key();
 
       const role = qs('input[name="su-role"]:checked')?.value || 'user';
 
-      // Quick validation
+      // Quick validation — skip name field when role is organization (it's hidden)
       const checks = [
-        validateReq($('su-name'), 'Full name is required'),
         validateReq($('su-username'), 'Username is required'),
         validateEmail($('su-email'), role === 'organization'),
         validatePassword($('su-password')),
       ];
-      if (role === 'organization') {
+      if (role === 'user') {
+        checks.push(validateReq($('su-name'), 'Full name is required'));
+      } else {
         checks.push(validateReq($('su-org-name'), 'Organization name is required'));
         checks.push(validateReq($('su-contact'), 'Contact person is required'));
       }
