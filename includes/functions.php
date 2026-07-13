@@ -187,6 +187,7 @@ function get_turnstile_config(): array
         $candidates[] = dirname($_SERVER['DOCUMENT_ROOT']) . DIRECTORY_SEPARATOR . 'lawable-secrets.php';
     }
 
+    $candidates[] = dirname(__DIR__, 1) . DIRECTORY_SEPARATOR . 'lawable-secrets.php';
     $candidates[] = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'lawable-secrets.php';
     $candidates[] = dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'lawable-secrets.php';
     $candidates[] = dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . 'lawable-secrets.php';

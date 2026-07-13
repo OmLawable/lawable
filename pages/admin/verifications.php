@@ -96,7 +96,7 @@ foreach ($reports as $r) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Verifications — Lawable Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../assets/css/lawable.css" />
+  <link rel="stylesheet" href="../../assets/css/lawable.css" />
   <style>
     :root {
       --gold: #C9933A;
@@ -849,7 +849,7 @@ foreach ($reports as $r) {
   </div>
 </div>
 
-<script src="../assets/js/script.js"></script>
+<script src="../../assets/js/script.js"></script>
 <script>
 (function() {
   'use strict';

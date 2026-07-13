@@ -48,7 +48,7 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Users — Lawable Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../assets/css/lawable.css" />
+  <link rel="stylesheet" href="../../assets/css/lawable.css" />
   <style>
     /* ─── Same design tokens as dashboard ──────────────── */
     :root {
@@ -599,7 +599,7 @@ $active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE s
   </div>
 </div>
 
-<script src="../assets/js/script.js"></script>
+<script src="../../assets/js/script.js"></script>
 <script>
 (function() {
   'use strict';
