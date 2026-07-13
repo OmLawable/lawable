@@ -108,7 +108,7 @@ $activities = $pdo->query("
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Dashboard — Lawable</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../assets/css/lawable.css" />
+  <link rel="stylesheet" href="../../assets/css/lawable.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     /* ─── Admin Dashboard Reset / Layout ──────────────── */
@@ -982,7 +982,7 @@ $activities = $pdo->query("
   </div>
 </div>
 
-<script src="../assets/js/script.js"></script>
+<script src="../../assets/js/script.js"></script>
 <script>
 (function() {
   'use strict';

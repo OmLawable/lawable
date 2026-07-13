@@ -189,7 +189,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Edit Organization Profile - Lawable</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/css/lawable.css?v=3" />
+  <link rel="stylesheet" href="../../assets/css/lawable.css?v=3" />
   <style>
     body.profile-page { background: #FCF8F1 !important; }
     .profile-shell { width: min(980px, 100%) !important; margin: 0 auto !important; }
@@ -345,7 +345,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </section>
 </main>
 
-<script src="assets/js/script.js"></script>
+<script src="../../assets/js/script.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     const alerts = document.querySelectorAll('.profile-alert');
