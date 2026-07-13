@@ -7,7 +7,7 @@ start_secure_session();
 
 // If already logged in, redirect to home
 if (is_logged_in()) {
-    header('Location: ../home.php');
+    header('Location: dashboard.php');
     exit;
 }
 
@@ -802,7 +802,7 @@ $turnstileSiteKey = get_turnstile_site_key();
 
         if (data.success) {
           showToast(data.message, 'success');
-          setTimeout(() => { window.location.href = data.redirect || '/lawable/home.php'; }, 600);
+          setTimeout(() => { window.location.href = data.redirect || '/lawable/pages/dashboard.php'; }, 600);
         } else {
           showToast(data.message || 'Login failed.', 'error');
           btn.disabled = false;

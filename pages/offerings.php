@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../backend/includes/functions.php';
+require_once __DIR__ . '/../includes/functions.php';
 start_secure_session();
 $user = current_user();
 $isLoggedIn = $user !== null;

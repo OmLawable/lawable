@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/../includes/functions.php';
 start_secure_session();
 
 if (!is_logged_in()) {
@@ -12,7 +12,7 @@ $user = current_user();
 
 // Admin → redirect to admin dashboard
 if (($user['role'] ?? '') === 'admin') {
-    redirect('pages/admin-dashboard.php');
+    redirect('pages/admin/dashboard.php');
 }
 
 // Organization → show org-specific view (placeholder for now)
@@ -891,15 +891,15 @@ if (!$is_org) {
 
 <!-- ─── NAVBAR ─────────────────────────────────────────────── -->
 <nav id="navbar">
-  <a href="home.php" class="nav-logo">Law<span>able</span></a>
+  <a href="dashboard.php" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
-    <li><a href="pages/offerings.php">Offerings</a></li>
-    <li><a href="pages/courses.php">Courses</a></li>
-    <li><a href="pages/about.php">About</a></li>
-    <li><a href="pages/contact.php">Contact</a></li>
+    <li><a href="offerings.php">Offerings</a></li>
+    <li><a href="courses.php">Courses</a></li>
+    <li><a href="about.php">About</a></li>
+    <li><a href="contact.php">Contact</a></li>
     <?php if (!$is_org): ?>
     <li class="nav-profile-item">
-      <a href="edit-profile.php" class="nav-profile" aria-label="Edit profile">
+      <a href="student/edit-profile.php" class="nav-profile" aria-label="Edit profile">
         <span aria-hidden="true">👤</span>
       </a>
     </li>
@@ -910,7 +910,7 @@ if (!$is_org) {
         <span class="theme-toggle-text">Dark</span>
       </button>
     </li>
-    <li><a href="api/logout.php" class="nav-cta">Log out</a></li>
+    <li><a href="../api/logout.php" class="nav-cta">Log out</a></li>
   </ul>
   <button class="nav-hamburger" id="hamburger" aria-label="Menu">
     <span></span><span></span><span></span>
@@ -918,18 +918,18 @@ if (!$is_org) {
 </nav>
 
 <nav class="nav-drawer" id="drawer">
-  <a href="pages/offerings.php" onclick="closeDrawer()">Offerings</a>
-  <a href="pages/courses.php" onclick="closeDrawer()">Courses</a>
-  <a href="pages/about.php" onclick="closeDrawer()">About</a>
-  <a href="pages/contact.php" onclick="closeDrawer()">Contact</a>
+  <a href="offerings.php" onclick="closeDrawer()">Offerings</a>
+  <a href="courses.php" onclick="closeDrawer()">Courses</a>
+  <a href="about.php" onclick="closeDrawer()">About</a>
+  <a href="contact.php" onclick="closeDrawer()">Contact</a>
   <?php if (!$is_org): ?>
-  <a href="edit-profile.php" onclick="closeDrawer()">Edit profile</a>
+  <a href="student/edit-profile.php" onclick="closeDrawer()">Edit profile</a>
   <?php endif; ?>
   <button class="theme-toggle drawer-theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
     <span class="theme-toggle-icon" aria-hidden="true">D</span>
     <span class="theme-toggle-text">Dark theme</span>
   </button>
-  <a href="api/logout.php" class="drawer-cta">Log out</a>
+  <a href="../api/logout.php" class="drawer-cta">Log out</a>
 </nav>
 
 <!-- ─── DASHBOARD PAGE ────────────────────────────────────────── -->
@@ -940,7 +940,7 @@ if (!$is_org) {
       <h1>Welcome back, <?= e(explode(' ', $user['name'] ?? 'Student')[0]) ?> 👋</h1>
       <p>Here's your learning overview.</p>
     </div>
-    <span class="profile-nav-indicator" onclick="window.location='edit-profile.php'">
+    <span class="profile-nav-indicator" onclick="window.location='student/edit-profile.php'">
       ✏️ Edit profile
     </span>
   </div>
@@ -951,7 +951,7 @@ if (!$is_org) {
     <div class="org-welcome">
       <h2>🏛 Organization Dashboard</h2>
       <p>Welcome, <?= e($user['organization_name'] ?? $user['name']) ?>. Organization management features are coming soon.</p>
-      <a href="edit-org-profile.php" class="btn-primary">Manage Organization</a>
+      <a href="organization/edit-profile.php" class="btn-primary">Manage Organization</a>
     </div>
 
 <?php else: /* ─── STUDENT VIEW ─── */ ?>
@@ -970,7 +970,7 @@ if (!$is_org) {
         </div>
       </div>
       <div class="nudge-actions">
-        <a href="edit-profile.php" class="nudge-btn">Complete Profile</a>
+        <a href="student/edit-profile.php" class="nudge-btn">Complete Profile</a>
         <button class="nudge-close" onclick="dismissNudge()" aria-label="Dismiss">&times;</button>
       </div>
     </div>
@@ -1193,7 +1193,7 @@ if (!$is_org) {
 
       // AJAX dismiss
       var xhr = new XMLHttpRequest();
-      xhr.open('POST', 'backend/dashboard.php?action=dismiss_nudge', true);
+      xhr.open('POST', '../api/dashboard-ajax.php?action=dismiss_nudge', true);
       xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
       xhr.send('student_id=<?= $student_id ?>');
     }

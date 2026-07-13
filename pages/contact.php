@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../backend/includes/functions.php';
+require_once __DIR__ . '/../includes/functions.php';
 start_secure_session();
 $user = current_user();
 $isLoggedIn = $user !== null;
@@ -20,7 +20,7 @@ $isAdmin = $isLoggedIn && ($user['role'] ?? '') === 'admin';
 <button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
 <nav id="navbar">
-  <a href="<?= $isAdmin ? '../pages/admin-dashboard.php' : ($isLoggedIn ? '../home.php' : '../index.html') ?>" class="nav-logo">Law<span>able</span></a>
+  <a href="<?= $isAdmin ? 'admin/dashboard.php' : ($isLoggedIn ? 'dashboard.php' : '../index.php') ?>" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
     <li><a href="offerings.php">Offerings</a></li>
     <li><a href="courses.php">Courses</a></li>
@@ -29,7 +29,7 @@ $isAdmin = $isLoggedIn && ($user['role'] ?? '') === 'admin';
     <?php if ($isLoggedIn): ?>
     <?php if (!$isAdmin): ?>
     <li class="nav-profile-item">
-      <a href="../edit-profile.php" class="nav-profile" aria-label="Edit profile">
+      <a href="student/edit-profile.php" class="nav-profile" aria-label="Edit profile">
         <span aria-hidden="true">👤</span>
       </a>
     </li>
@@ -57,7 +57,7 @@ $isAdmin = $isLoggedIn && ($user['role'] ?? '') === 'admin';
   <a href="contact.php" onclick="closeDrawer()">Contact</a>
   <?php if ($isLoggedIn): ?>
   <?php if (!$isAdmin): ?>
-  <a href="../edit-profile.php" onclick="closeDrawer()">Edit profile</a>
+  <a href="student/edit-profile.php" onclick="closeDrawer()">Edit profile</a>
   <?php endif; ?>
   <a href="../api/logout.php" class="drawer-cta">Log out</a>
   <?php else: ?>

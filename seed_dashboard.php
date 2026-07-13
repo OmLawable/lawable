@@ -98,4 +98,4 @@ foreach ($tables as $table => $label) {
     $cnt = $pdo->query("SELECT COUNT(*) FROM {$table}")->fetchColumn();
     echo "  {$label}: {$cnt} rows\n";
 }
-</write_to_file>
+?>

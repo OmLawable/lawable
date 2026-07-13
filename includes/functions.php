@@ -142,7 +142,7 @@ function require_login(?string $requiredRole = null): array
 
     if ($requiredRole && ($user['role'] ?? '') !== $requiredRole) {
         set_flash('error', 'You do not have permission to access that page.');
-        redirect('home.php');
+        redirect('pages/dashboard.php');
     }
 
     return $user;
