@@ -1,105 +1,182 @@
 <?php
-declare(strict_types=1);
-
 require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../includes/firestore.php';
 start_secure_session();
 
 $user = require_login('admin');
+$db = get_firestore();
 
-/* ── Fetch Dashboard Data ────────────────────────────────── */
-$pdo   = get_pdo();
+// Fetch all base data for counts
+$students = $db->query('students', [], 500);
+$orgs = $db->query('organizations', [], 500);
+$courses = $db->query('courses', [], 500);
+$verifs = $db->query('verificationRequests', [], 500);
+$tickets = $db->query('supportTickets', [], 500);
+$reports = $db->query('contentReports', [], 500);
+$enrollments = $db->query('enrollments', [], 500);
 
-/* Stat Cards */
-$total_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE status='active') + (SELECT COUNT(*) FROM organizations)")->fetchColumn();
-$total_users_prev = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE status='active' AND created_at < NOW() - INTERVAL 30 DAY) + (SELECT COUNT(*) FROM organizations WHERE created_at < NOW() - INTERVAL 30 DAY)")->fetchColumn();
+$cutoff30 = (new \DateTime('now', new \DateTimeZone('UTC')))->modify('-30 days')->format('Y-m-d\TH:i:s\Z');
+
+// ── Stat Cards ────────────────────────────────────────────────────────────
+$active_students = 0;
+$active_students_prev = 0;
+foreach ($students as $s) {
+    if (($s['status'] ?? '') === 'active') {
+        $active_students++;
+        if (($s['createdAt'] ?? '') < $cutoff30) {
+            $active_students_prev++;
+        }
+    }
+}
+
+$total_orgs = count($orgs);
+$total_orgs_prev = 0;
+foreach ($orgs as $o) {
+    if (($o['createdAt'] ?? '') < $cutoff30) {
+        $total_orgs_prev++;
+    }
+}
+
+$total_users = $active_students + $total_orgs;
+$total_users_prev = $active_students_prev + $total_orgs_prev;
 $user_change = $total_users_prev > 0 ? round(($total_users - $total_users_prev) / $total_users_prev * 100, 1) : 0;
-
-$active_students = (int) $pdo->query("SELECT COUNT(*) FROM students WHERE status='active'")->fetchColumn();
-$active_students_prev = (int) $pdo->query("SELECT COUNT(*) FROM students WHERE status='active' AND created_at < NOW() - INTERVAL 30 DAY")->fetchColumn();
 $student_change = $active_students_prev > 0 ? round(($active_students - $active_students_prev) / $active_students_prev * 100, 1) : 0;
-
-$total_orgs = (int) $pdo->query("SELECT COUNT(*) FROM organizations")->fetchColumn();
-$total_orgs_prev = (int) $pdo->query("SELECT COUNT(*) FROM organizations WHERE created_at < NOW() - INTERVAL 30 DAY")->fetchColumn();
 $org_change = $total_orgs_prev > 0 ? round(($total_orgs - $total_orgs_prev) / $total_orgs_prev * 100, 1) : 0;
 
-$total_verified_orgs = (int) $pdo->query("SELECT COUNT(*) FROM organizations")->fetchColumn(); // placeholder
-$pending_verifications_total = (int) $pdo->query("SELECT COUNT(*) FROM verification_documents WHERE status IN ('pending','under_review')")->fetchColumn();
+$pending_verifications_total = 0;
+foreach ($verifs as $v) {
+    if (in_array($v['status'] ?? '', ['pending', 'under_review'], true)) {
+        $pending_verifications_total++;
+    }
+}
 
-$total_courses = (int) $pdo->query("SELECT COUNT(*) FROM courses WHERE status='published'")->fetchColumn();
-$total_courses_prev = (int) $pdo->query("SELECT COUNT(*) FROM courses WHERE status='published' AND created_at < NOW() - INTERVAL 30 DAY")->fetchColumn();
+$total_courses = 0;
+$total_courses_prev = 0;
+foreach ($courses as $c) {
+    if (($c['status'] ?? '') === 'published') {
+        $total_courses++;
+        if (($c['createdAt'] ?? '') < $cutoff30) {
+            $total_courses_prev++;
+        }
+    }
+}
 $courses_change = $total_courses_prev > 0 ? round(($total_courses - $total_courses_prev) / $total_courses_prev * 100, 1) : 0;
 
-/* Platform Growth – last 30 days daily signups & enrollments */
-$growth_data = $pdo->query("
-    SELECT
-        DATE(d.date) AS day,
-        COALESCE(s.cnt, 0) AS signups,
-        COALESCE(e.cnt, 0) AS enrollments
-    FROM (
-        SELECT CURDATE() - INTERVAL(a.a + (10*b.a) + (100*c.a)) DAY AS date
-        FROM (SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) AS a
-        CROSS JOIN (SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) AS b
-        CROSS JOIN (SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2) AS c
-    ) AS d
-    LEFT JOIN (
-        SELECT DATE(created_at) AS dt, COUNT(*) AS cnt FROM students
-        WHERE created_at >= NOW() - INTERVAL 30 DAY GROUP BY DATE(created_at)
-    ) s ON d.date = s.dt
-    LEFT JOIN (
-        SELECT DATE(enrolled_at) AS dt, COUNT(*) AS cnt FROM course_enrollments
-        WHERE enrolled_at >= NOW() - INTERVAL 30 DAY GROUP BY DATE(enrolled_at)
-    ) e ON d.date = e.dt
-    WHERE d.date >= CURDATE() - INTERVAL 29 DAY
-    ORDER BY d.date
-")->fetchAll();
-
+// ── Platform Growth Chart (last 30 days) ──────────────────────────────────
 $growth_labels = [];
 $growth_signups = [];
 $growth_enrollments = [];
 $total_signups_30d = 0;
 $total_enrollments_30d = 0;
-foreach ($growth_data as $row) {
-    $growth_labels[] = date('M d', strtotime($row['day']));
-    $growth_signups[] = (int) $row['signups'];
-    $growth_enrollments[] = (int) $row['enrollments'];
-    $total_signups_30d += (int) $row['signups'];
-    $total_enrollments_30d += (int) $row['enrollments'];
-}
-$signup_change_30d = $total_signups_30d > 0
-    ? round(($total_signups_30d - ($total_users - $total_signups_30d)) / ($total_users - $total_signups_30d > 0 ? ($total_users - $total_signups_30d) : 1) * 100, 1)
-    : 0;
-$enroll_change_30d = $total_enrollments_30d > 0
-    ? round(($total_enrollments_30d - 0) / ($total_enrollments_30d) * 100, 1)
-    : 0;
 
-/* Verification rate */
-$total_verifications = (int) $pdo->query("SELECT COUNT(*) FROM verification_documents")->fetchColumn();
-$verified_count = (int) $pdo->query("SELECT COUNT(*) FROM verification_documents WHERE status='verified'")->fetchColumn();
+for ($i = 29; $i >= 0; $i--) {
+    $dateObj = (new \DateTime('now', new \DateTimeZone('Asia/Kolkata')))->modify("-{$i} days");
+    $dayLabel = $dateObj->format('M d');
+    $dayStart = $dateObj->setTime(0, 0, 0)->format('Y-m-d H:i:s');
+    $dayEnd = $dateObj->setTime(23, 59, 59)->format('Y-m-d H:i:s');
+
+    // Standardize to UTC for Firestore comparisons
+    $dayStartUtc = (new \DateTime($dayStart, new \DateTimeZone('Asia/Kolkata')))->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z');
+    $dayEndUtc = (new \DateTime($dayEnd, new \DateTimeZone('Asia/Kolkata')))->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z');
+
+    $signups_cnt = 0;
+    foreach ($students as $s) {
+        $created = $s['createdAt'] ?? '';
+        if ($created >= $dayStartUtc && $created <= $dayEndUtc) {
+            $signups_cnt++;
+        }
+    }
+
+    $enrolls_cnt = 0;
+    foreach ($enrollments as $e) {
+        $enrolled = $e['enrolledAt'] ?? '';
+        if ($enrolled >= $dayStartUtc && $enrolled <= $dayEndUtc) {
+            $enrolls_cnt++;
+        }
+    }
+
+    $growth_labels[] = $dayLabel;
+    $growth_signups[] = $signups_cnt;
+    $growth_enrollments[] = $enrolls_cnt;
+    $total_signups_30d += $signups_cnt;
+    $total_enrollments_30d += $enrolls_cnt;
+}
+
+$signup_change_30d = $total_signups_30d > 0
+    ? round(($total_signups_30d - ($total_users - $total_signups_30d)) / (($total_users - $total_signups_30d) > 0 ? ($total_users - $total_signups_30d) : 1) * 100, 1)
+    : 0;
+$enroll_change_30d = $total_enrollments_30d > 0 ? 100.0 : 0.0;
+
+// ── Verification rate ─────────────────────────────────────────────────────
+$total_verifications = count($verifs);
+$verified_count = 0;
+foreach ($verifs as $v) {
+    if (($v['status'] ?? '') === 'verified') $verified_count++;
+}
 $verification_rate = $total_verifications > 0 ? round($verified_count / $total_verifications * 100) : 88;
 
-/* Admin action items */
-$pending_org_verifs = (int) $pdo->query("SELECT COUNT(*) FROM verification_documents WHERE status='pending'")->fetchColumn();
-$under_review_verifs = (int) $pdo->query("SELECT COUNT(*) FROM verification_documents WHERE status='under_review'")->fetchColumn();
-$flagged_content = (int) $pdo->query("SELECT COUNT(*) FROM content_reports WHERE status='open'")->fetchColumn();
-$open_tickets = (int) $pdo->query("SELECT COUNT(*) FROM support_tickets WHERE status IN ('open','in_progress')")->fetchColumn();
+// ── Action Items ──────────────────────────────────────────────────────────
+$pending_org_verifs = 0;
+$under_review_verifs = 0;
+foreach ($verifs as $v) {
+    if (($v['status'] ?? '') === 'pending') $pending_org_verifs++;
+    if (($v['status'] ?? '') === 'under_review') $under_review_verifs++;
+}
 
-/* Pending Verifications table */
-$pending_verifs = $pdo->query("
-    SELECT v.id, o.organization_name, o.email, o.contact_person, v.document_type, v.status, v.submitted_at, v.id AS doc_id
-    FROM verification_documents v
-    JOIN organizations o ON v.organization_id = o.id
-    WHERE v.status IN ('pending','under_review','verified')
-    ORDER BY v.submitted_at DESC
-    LIMIT 10
-")->fetchAll();
+$flagged_content = 0;
+foreach ($reports as $r) {
+    if (($r['status'] ?? '') === 'open') $flagged_content++;
+}
 
-/* Recent Activity */
-$activities = $pdo->query("
-    SELECT action, description, priority, created_at
-    FROM activity_logs
-    ORDER BY created_at DESC
-    LIMIT 3
-")->fetchAll();
+$open_tickets = 0;
+foreach ($tickets as $t) {
+    if (in_array($t['status'] ?? '', ['open', 'in_progress'], true)) {
+        $open_tickets++;
+    }
+}
+
+// ── Pending Verifications Table ───────────────────────────────────────────
+$pending_verifs = [];
+foreach ($verifs as $v) {
+    $status = $v['status'] ?? '';
+    if (in_array($status, ['pending', 'under_review', 'verified'], true)) {
+        $org = $db->get('organizations', $v['organizationId'] ?? '');
+        if ($org) {
+            $pending_verifs[] = [
+                'id'                => $v['__id'],
+                'organization_name' => $org['organizationName'] ?? 'Organization',
+                'email'             => $org['email'] ?? '',
+                'contact_person'    => $org['contactPerson'] ?? '',
+                'document_type'     => $v['documentType'] ?? 'registration',
+                'status'            => $status,
+                'submitted_at'      => $v['submittedAt'] ?? '',
+                'doc_id'            => $v['__id']
+            ];
+        }
+    }
+}
+usort($pending_verifs, function($a, $b) {
+    return strcmp($b['submitted_at'], $a['submitted_at']);
+});
+$pending_verifs = array_slice($pending_verifs, 0, 10);
+
+// ── Recent Activity Feed ──────────────────────────────────────────────────
+$activities = [];
+$logDocs = $db->query('activityLogs', [], 100);
+if (!empty($logDocs)) {
+    usort($logDocs, function($a, $b) {
+        return strcmp($b['createdAt'] ?? '', $a['createdAt'] ?? '');
+    });
+    $slicedLogs = array_slice($logDocs, 0, 3);
+    foreach ($slicedLogs as $l) {
+        $activities[] = [
+            'action'      => $l['action'] ?? '',
+            'description' => $l['description'] ?? '',
+            'priority'    => $l['priority'] ?? 'low',
+            'created_at'  => $l['createdAt'] ?? ''
+        ];
+}
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -918,12 +995,12 @@ $activities = $pdo->query("
                   <div class="verif-actions">
                     <?php if ($pv['status'] !== 'verified'): ?>
                     <form method="post" action="../../api/handle_verification.php" style="display:inline;">
-                      <input type="hidden" name="doc_id" value="<?= (int) $pv['id'] ?>" />
+                      <input type="hidden" name="doc_id" value="<?= e($pv['id']) ?>" />
                       <input type="hidden" name="action" value="approve" />
                       <button type="submit" class="verif-btn approve">✓ Approve</button>
                     </form>
                     <form method="post" action="../../api/handle_verification.php" style="display:inline;">
-                      <input type="hidden" name="doc_id" value="<?= (int) $pv['id'] ?>" />
+                      <input type="hidden" name="doc_id" value="<?= e($pv['id']) ?>" />
                       <input type="hidden" name="action" value="reject" />
                       <button type="submit" class="verif-btn reject">✕ Reject</button>
                     </form>

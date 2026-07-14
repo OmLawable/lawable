@@ -1,35 +1,44 @@
 <?php
-declare(strict_types=1);
-
 require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../includes/firestore.php';
 start_secure_session();
 
 $user = require_login('admin');
+$db = get_firestore();
 
-$pdo = get_pdo();
+/* ── Fetch courses and enrollments from Firestore ── */
+$courses = $db->query('courses', [], 500);
+$enrollments = $db->query('enrollments', [], 1000);
 
-/* ── Fetch courses with organization names and enrollment counts ── */
-$stmt = $pdo->query("
-    SELECT
-        c.id,
-        c.title,
-        c.description,
-        c.price,
-        c.status,
-        c.created_at,
-        c.updated_at,
-        o.organization_name,
-        COALESCE(e.enrollment_count, 0) AS enrollment_count
-    FROM courses c
-    LEFT JOIN organizations o ON c.organization_id = o.id
-    LEFT JOIN (
-        SELECT course_id, COUNT(*) AS enrollment_count
-        FROM course_enrollments
-        GROUP BY course_id
-    ) e ON c.id = e.course_id
-    ORDER BY c.created_at DESC
-");
-$all_courses = $stmt->fetchAll();
+// Build enrollment count mapping
+$enrollmentCounts = [];
+foreach ($enrollments as $e) {
+    $cId = $e['courseId'] ?? '';
+    if (!empty($cId)) {
+        $enrollmentCounts[$cId] = ($enrollmentCounts[$cId] ?? 0) + 1;
+    }
+}
+
+$all_courses = [];
+foreach ($courses as $c) {
+    $cId = $c['__id'];
+    $all_courses[] = [
+        'id'                => $cId,
+        'title'             => $c['title'] ?? '',
+        'description'       => $c['description'] ?? '',
+        'price'             => (float) ($c['price'] ?? 0.0),
+        'status'            => $c['status'] ?? 'draft',
+        'created_at'        => $c['createdAt'] ?? '',
+        'updated_at'        => $c['updatedAt'] ?? '',
+        'organization_name' => $c['organizationName'] ?? '',
+        'enrollment_count'  => $enrollmentCounts[$cId] ?? 0
+    ];
+}
+
+// Sort courses by created_at DESC
+usort($all_courses, function($a, $b) {
+    return strcmp($b['created_at'], $a['created_at']);
+});
 
 /* Stats */
 $total_courses      = count($all_courses);

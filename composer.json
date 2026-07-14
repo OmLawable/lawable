@@ -1,5 +1,5 @@
 {
     "require": {
-        "kreait/firebase-tokens": "3.0.3"
+        "kreait/firebase-php": "^8.2"
     }
 }

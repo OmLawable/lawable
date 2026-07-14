@@ -1,7 +1,6 @@
 <?php
-declare(strict_types=1);
-
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/firestore.php';
 start_secure_session();
 
 if (!is_logged_in()) {
@@ -18,29 +17,20 @@ if (($user['role'] ?? '') === 'admin') {
 // Organization → show org-specific view (placeholder for now)
 $is_org = ($user['role'] ?? '') === 'organization';
 
-$pdo = get_pdo();
+$db = get_firestore();
+$student_id = (string) $user['id'];
 
 /* ── Fetch Dashboard Data ────────────────────────────────── */
-$student_id = (int) $user['id'];
-
-// ─ 1. Profile completion ─
 $profile_pct = 0;
 $nudge_dismissed = false;
-if (!$is_org) {
-    $stmt = $pdo->prepare("
-        SELECT sp.bio, sp.city, sp.institution, sp.course, sp.year_semester,
-               sp.areas_of_interest, sp.skills, sp.linkedin_url, sp.resume_file,
-               sp.profile_completed, sp.completion_nudge_dismissed
-        FROM student_profiles sp WHERE sp.student_id = :sid
-        LIMIT 1
-    ");
-    $stmt->execute([':sid' => $student_id]);
-    $sp = $stmt->fetch();
 
+if (!$is_org) {
+    // ─ 1. Profile completion ─
+    $sp = $db->get('students', $student_id);
     if ($sp) {
-        $nudge_dismissed = (bool) ($sp['completion_nudge_dismissed'] ?? false);
+        $nudge_dismissed = (bool) ($sp['completionNudgeDismissed'] ?? false);
         // Count filled optional fields
-        $optional = ['city','bio','date_of_birth','institution','course','year_semester','areas_of_interest','linkedin_url','skills','resume_file'];
+        $optional = ['city','bio','dateOfBirth','institution','course','yearSemester','areasOfInterest','linkedinUrl','skills','resumeFile'];
         $filled = 0;
         foreach ($optional as $f) {
             if (!empty($sp[$f])) $filled++;
@@ -52,45 +42,77 @@ if (!$is_org) {
 // ─ 2. Continue learning (last accessed in-progress course) ─
 $last_course = null;
 if (!$is_org) {
-    $stmt = $pdo->prepare("
-        SELECT cp.progress_percentage, cp.last_accessed_at, cp.completed_lessons, cp.total_lessons,
-               c.id AS course_id, c.title, c.description
-        FROM course_progress cp
-        JOIN courses c ON c.id = cp.course_id
-        WHERE cp.student_id = :sid AND cp.progress_percentage < 100.00
-        ORDER BY cp.last_accessed_at DESC
-        LIMIT 1
-    ");
-    $stmt->execute([':sid' => $student_id]);
-    $last_course = $stmt->fetch();
+    $progressRecords = $db->query('progress', [
+        ['studentId', 'EQUAL', $student_id]
+    ], 100);
+
+    // Filter in-progress (< 100%) and sort by lastAccessedAt descending
+    $inProgress = array_filter($progressRecords, function($p) {
+        return (float) ($p['progressPercentage'] ?? 0.0) < 100.00;
+    });
+
+    if (!empty($inProgress)) {
+        usort($inProgress, function($a, $b) {
+            return strcmp($b['lastAccessedAt'] ?? '', $a['lastAccessedAt'] ?? '');
+        });
+        $lastProgress = reset($inProgress);
+        $courseDoc = $db->get('courses', $lastProgress['courseId']);
+        if ($courseDoc) {
+            $last_course = [
+                'course_id'           => $courseDoc['__id'],
+                'title'               => $courseDoc['title'] ?? '',
+                'description'         => $courseDoc['description'] ?? '',
+                'progress_percentage' => $lastProgress['progressPercentage'] ?? 0.0,
+                'completed_lessons'   => $lastProgress['completedLessons'] ?? 0,
+                'total_lessons'       => $lastProgress['totalLessons'] ?? 0,
+            ];
+        }
+    }
 }
 
 // ─ 3. Enrolled courses with progress ─
 $enrolled_courses = [];
 if (!$is_org) {
-    $stmt = $pdo->prepare("
-        SELECT
-            c.id, c.title, c.description, c.price,
-            COALESCE(cp.progress_percentage, 0) AS progress_percentage,
-            COALESCE(cp.completed_lessons, 0) AS completed_lessons,
-            COALESCE(cp.total_lessons, 0) AS total_lessons,
-            cp.last_accessed_at,
-            ce.enrolled_at
-        FROM course_enrollments ce
-        JOIN courses c ON c.id = ce.course_id
-        LEFT JOIN course_progress cp ON cp.student_id = ce.student_id AND cp.course_id = ce.course_id
-        WHERE ce.student_id = :sid
-        ORDER BY cp.last_accessed_at DESC, ce.enrolled_at DESC
-    ");
-    $stmt->execute([':sid' => $student_id]);
-    $enrolled_courses = $stmt->fetchAll();
+    $enrollments = $db->query('enrollments', [['studentId', 'EQUAL', $student_id]], 100);
+
+    // Sort enrollments: we'll fetch details and sort them in PHP
+    foreach ($enrollments as $e) {
+        $cId = $e['courseId'] ?? '';
+        if (empty($cId)) continue;
+
+        $courseDoc = $db->get('courses', $cId);
+        if (!$courseDoc) continue;
+
+        // Fetch corresponding progress
+        $progressId = $student_id . '_' . $cId;
+        $progressDoc = $db->get('progress', $progressId);
+
+        $enrolled_courses[] = [
+            'id'                  => $courseDoc['__id'],
+            'title'               => $courseDoc['title'] ?? '',
+            'description'         => $courseDoc['description'] ?? '',
+            'price'               => (float) ($courseDoc['price'] ?? 0.0),
+            'progress_percentage' => (float) ($progressDoc['progressPercentage'] ?? 0.0),
+            'completed_lessons'   => (int) ($progressDoc['completedLessons'] ?? 0),
+            'total_lessons'       => (int) ($progressDoc['totalLessons'] ?? 0),
+            'last_accessed_at'    => $progressDoc['lastAccessedAt'] ?? '',
+            'enrolled_at'         => $e['enrolledAt'] ?? '',
+        ];
+    }
+
+    // Sort by last_accessed_at DESC, then enrolled_at DESC
+    usort($enrolled_courses, function($a, $b) {
+        $cmp = strcmp($b['last_accessed_at'], $a['last_accessed_at']);
+        if ($cmp !== 0) return $cmp;
+        return strcmp($b['enrolled_at'], $a['enrolled_at']);
+    });
 }
 
 // ─ 4. Quick stats ─
 $stats = [
-    'enrolled'    => 0,
-    'completed'   => 0,
-    'certificates'=> 0,
+    'enrolled'      => 0,
+    'completed'     => 0,
+    'certificates'  => 0,
     'hours_studied' => 0,
 ];
 if (!$is_org) {
@@ -98,82 +120,97 @@ if (!$is_org) {
     foreach ($enrolled_courses as $ec) {
         if ((float) $ec['progress_percentage'] >= 100.0) $stats['completed']++;
     }
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM certificates WHERE student_id = :sid");
-    $stmt->execute([':sid' => $student_id]);
-    $stats['certificates'] = (int) $stmt->fetchColumn();
 
-    // Estimated hours studied from completed lessons
-    $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(cl.duration_minutes), 0) AS total_minutes
-        FROM course_progress cp
-        JOIN course_lessons cl ON cl.course_id = cp.course_id
-        WHERE cp.student_id = :sid
-    ");
-    $stmt->execute([':sid' => $student_id]);
-    $total_minutes = (int) $stmt->fetchColumn();
+    // Certificates count
+    $certs = $db->query('certificates', [['studentId', 'EQUAL', $student_id]], 100);
+    $stats['certificates'] = count($certs);
+
+    // Estimated hours studied (sum of lesson durations * progress pct)
+    $total_minutes = 0;
+    foreach ($enrolled_courses as $ec) {
+        // Fetch full course doc to get lessons
+        $courseDoc = $db->get('courses', $ec['id']);
+        if ($courseDoc && !empty($courseDoc['lessons'])) {
+            $course_minutes = 0;
+            foreach ($courseDoc['lessons'] as $lesson) {
+                $course_minutes += (int) ($lesson['durationMinutes'] ?? 0);
+            }
+            $total_minutes += (int) round(($course_minutes * $ec['progress_percentage']) / 100);
+        }
+    }
     $stats['hours_studied'] = round($total_minutes / 60, 1);
 }
 
 // ─ 5. Recommended / trending courses ─
 $recommended = [];
 if (!$is_org) {
-    // Pick courses the student is NOT enrolled in, ordered by popularity (most enrolled)
-    $stmt = $pdo->prepare("
-        SELECT c.id, c.title, c.description, c.price,
-               COUNT(ce.id) AS enrollment_count
-        FROM courses c
-        LEFT JOIN course_enrollments ce ON ce.course_id = c.id
-        WHERE c.status = 'published'
-          AND c.id NOT IN (
-              SELECT course_id FROM course_enrollments WHERE student_id = :sid
-          )
-        GROUP BY c.id
-        ORDER BY enrollment_count DESC, c.created_at DESC
-        LIMIT 4
-    ");
-    $stmt->execute([':sid' => $student_id]);
-    $recommended = $stmt->fetchAll();
+    $allPublished = $db->query('courses', [['status', 'EQUAL', 'published']], 100);
+    $enrolledIds = array_column($enrolled_courses, 'id');
 
-    // Fallback to any published if none recommended
-    if (empty($recommended)) {
-        $stmt = $pdo->prepare("SELECT id, title, description, price, 0 AS enrollment_count FROM courses WHERE status = 'published' ORDER BY created_at DESC LIMIT 4");
-        $stmt->execute();
-        $recommended = $stmt->fetchAll();
+    // Filter out enrolled courses
+    $notEnrolled = array_filter($allPublished, function($c) use ($enrolledIds) {
+        return !in_array($c['__id'], $enrolledIds);
+    });
+
+    // Simple sorting: by createdAt descending
+    usort($notEnrolled, function($a, $b) {
+        return strcmp($b['createdAt'] ?? '', $a['createdAt'] ?? '');
+    });
+
+    // Slice first 4
+    $slice = array_slice($notEnrolled, 0, 4);
+    foreach ($slice as $s) {
+        $recommended[] = [
+            'id'          => $s['__id'],
+            'title'       => $s['title'] ?? '',
+            'description' => $s['description'] ?? '',
+            'price'       => (float) ($s['price'] ?? 0.0),
+        ];
     }
 }
 
 // ─ 6. Announcements ─
-$stmt = $pdo->query("SELECT id, title, content, created_at FROM announcements WHERE status='published' ORDER BY created_at DESC LIMIT 3");
-$announcements = $stmt->fetchAll();
+$announcements = [];
+$announceDocs = $db->query('announcements', [['status', 'EQUAL', 'published']], 100);
+if (!empty($announceDocs)) {
+    usort($announceDocs, function($a, $b) {
+        return strcmp($b['createdAt'] ?? '', $a['createdAt'] ?? '');
+    });
+    $announceDocs = array_slice($announceDocs, 0, 3);
+    foreach ($announceDocs as $ad) {
+        $announcements[] = [
+            'id'         => $ad['__id'],
+            'title'      => $ad['title'] ?? '',
+            'content'    => $ad['content'] ?? '',
+            'created_at' => $ad['createdAt'] ?? '',
+        ];
+    }
+}
 
 // ─ 7. Certificates ─
 $certificates = [];
 if (!$is_org) {
-    $stmt = $pdo->prepare("
-        SELECT cert.certificate_number, cert.issued_at, c.title AS course_title
-        FROM certificates cert
-        JOIN courses c ON c.id = cert.course_id
-        WHERE cert.student_id = :sid
-        ORDER BY cert.issued_at DESC
-        LIMIT 4
-    ");
-    $stmt->execute([':sid' => $student_id]);
-    $certificates = $stmt->fetchAll();
+    $certDocs = $db->query('certificates', [['studentId', 'EQUAL', $student_id]], 100);
+    if (!empty($certDocs)) {
+        usort($certDocs, function($a, $b) {
+            return strcmp($b['issuedAt'] ?? '', $a['issuedAt'] ?? '');
+        });
+        $certDocs = array_slice($certDocs, 0, 4);
+        foreach ($certDocs as $cd) {
+            $certificates[] = [
+                'certificate_number' => $cd['__id'],
+                'issued_at'          => $cd['issuedAt'] ?? '',
+                'course_title'       => $cd['courseName'] ?? '',
+            ];
+        }
+    }
 }
 
-// ─ 8. Upcoming deadlines (course_enrollments have no due dates, so use recent enrollments as proxy) ─
+// ─ 8. Recent enrollments ─
 $recent_enrollments = [];
 if (!$is_org) {
-    $stmt = $pdo->prepare("
-        SELECT c.title, ce.enrolled_at
-        FROM course_enrollments ce
-        JOIN courses c ON c.id = ce.course_id
-        WHERE ce.student_id = :sid
-        ORDER BY ce.enrolled_at DESC
-        LIMIT 2
-    ");
-    $stmt->execute([':sid' => $student_id]);
-    $recent_enrollments = $stmt->fetchAll();
+    // Already sorted by enrolled_at/last_accessed_at, slice top 2
+    $recent_enrollments = array_slice($enrolled_courses, 0, 2);
 }
 ?>
 <!DOCTYPE html>
@@ -1030,7 +1067,7 @@ if (!$is_org) {
         </div>
         <div class="continue-progress-text"><?= round((float) $last_course['progress_percentage']) ?>% complete</div>
       </div>
-      <a href="pages/courses.php?course_id=<?= (int) $last_course['course_id'] ?>" class="continue-btn">Continue →</a>
+      <a href="pages/courses.php?course_id=<?= e($last_course['course_id']) ?>" class="continue-btn">Continue →</a>
     </div>
     <?php elseif (empty($enrolled_courses)): ?>
     <div class="empty-state">
@@ -1066,7 +1103,7 @@ if (!$is_org) {
               <?= (float) $ec['price'] > 0 ? '₹' . number_format((float) $ec['price']) : '<span class="free-label">Free</span>' ?>
             </span>
             <?php if ((float) $ec['progress_percentage'] < 100): ?>
-            <a href="pages/courses.php?course_id=<?= (int) $ec['id'] ?>" class="enrolled-continue">Continue →</a>
+            <a href="pages/courses.php?course_id=<?= e($ec['id']) ?>" class="enrolled-continue">Continue →</a>
             <?php else: ?>
             <span style="font-size:0.72rem;color:var(--green);font-weight:600;">✓ Completed</span>
             <?php endif; ?>
@@ -1164,7 +1201,7 @@ if (!$is_org) {
             <span class="rec-price">
               <?= (float) $rc['price'] > 0 ? '₹' . number_format((float) $rc['price']) : '<span class="free-label">Free</span>' ?>
             </span>
-            <a href="pages/courses.php?course_id=<?= (int) $rc['id'] ?>" class="rec-enroll">Enroll →</a>
+            <a href="pages/courses.php?course_id=<?= e($rc['id']) ?>" class="rec-enroll">Enroll →</a>
           </div>
         </div>
       </div>

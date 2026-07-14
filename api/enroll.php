@@ -2,53 +2,62 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/firestore.php';
 start_secure_session();
 
 // Only logged-in students can enroll
 $user = require_login('user');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
     json_response(['success' => false, 'message' => 'Method not allowed.'], 405);
 }
 
-$course_id = (int) ($_POST['course_id'] ?? 0);
-if ($course_id < 1) {
+$course_id = trim((string) ($_POST['course_id'] ?? ''));
+if ($course_id === '') {
     json_response(['success' => false, 'message' => 'Invalid course ID.'], 400);
 }
 
-$student_id = (int) $user['id'];
-$pdo = get_pdo();
+$student_id = (string) $user['id'];
+$db = get_firestore();
 
 // Check course exists and is published
-$stmt = $pdo->prepare("SELECT id FROM courses WHERE id = :cid AND status = 'published' LIMIT 1");
-$stmt->execute([':cid' => $course_id]);
-if (!$stmt->fetch()) {
+$course = $db->get('courses', $course_id);
+if (!$course || ($course['status'] ?? '') !== 'published') {
     json_response(['success' => false, 'message' => 'Course not found.'], 404);
 }
 
-// Check not already enrolled
-$stmt = $pdo->prepare("SELECT id FROM course_enrollments WHERE student_id = :sid AND course_id = :cid LIMIT 1");
-$stmt->execute([':sid' => $student_id, ':cid' => $course_id]);
-if ($stmt->fetch()) {
+// Check not already enrolled (Compound ID prevents duplicates)
+$enrollmentId = $student_id . '_' . $course_id;
+$existingEnrollment = $db->get('enrollments', $enrollmentId);
+if ($existingEnrollment !== null) {
     json_response(['success' => false, 'message' => 'Already enrolled in this course.'], 409);
 }
 
-// Insert enrollment
-$stmt = $pdo->prepare("INSERT INTO course_enrollments (course_id, student_id) VALUES (:cid, :sid)");
-$stmt->execute([':cid' => $course_id, ':sid' => $student_id]);
+$now = FirestoreClient::now();
 
-// Get course lesson count for progress tracking
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM course_lessons WHERE course_id = :cid");
-$stmt->execute([':cid' => $course_id]);
-$lesson_count = (int) $stmt->fetchColumn();
+// Insert enrollment
+$enrollmentDoc = [
+    'studentId'      => $student_id,
+    'courseId'       => $course_id,
+    'courseName'     => $course['title'] ?? '',
+    'organizationId' => $course['organizationId'] ?? '',
+    'enrolledAt'     => $now,
+    'completedAt'    => null
+];
+$db->set('enrollments', $enrollmentDoc, $enrollmentId);
+
+// Get course lesson count for progress tracking (embedded lessons array)
+$lesson_count = count($course['lessons'] ?? []);
 
 // Create progress record
-$stmt = $pdo->prepare("
-    INSERT INTO course_progress (student_id, course_id, progress_percentage, completed_lessons, total_lessons)
-    VALUES (:sid, :cid, 0.00, 0, :lessons)
-    ON DUPLICATE KEY UPDATE total_lessons = VALUES(total_lessons)
-");
-$stmt->execute([':sid' => $student_id, ':cid' => $course_id, ':lessons' => $lesson_count]);
+$progressDoc = [
+    'studentId'          => $student_id,
+    'courseId'           => $course_id,
+    'progressPercentage' => 0.00,
+    'completedLessons'   => 0,
+    'totalLessons'       => $lesson_count,
+    'lastAccessedAt'     => $now
+];
+$db->set('progress', $progressDoc, $enrollmentId);
 
 json_response(['success' => true, 'message' => 'Enrolled successfully!']);

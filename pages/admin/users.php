@@ -1,45 +1,57 @@
 <?php
-declare(strict_types=1);
-
 require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../includes/firestore.php';
 start_secure_session();
 
 $user = require_login('admin');
+$db = get_firestore();
 
-$pdo = get_pdo();
+// Fetch all students and organizations from Firestore
+$students = $db->query('students', [], 500);
+$orgs = $db->query('organizations', [], 500);
 
-/* ── Combined users query: students + organizations ── */
-$stmt = $pdo->query("
-    SELECT
-        'student' AS type,
-        id,
-        name AS display_name,
-        username,
-        email,
-        phone,
-        status,
-        created_at
-    FROM students
-    UNION ALL
-    SELECT
-        'organization' AS type,
-        id,
-        organization_name AS display_name,
-        username,
-        email,
-        phone,
-        status,
-        created_at
-    FROM organizations
-    ORDER BY created_at DESC
-");
-$all_users = $stmt->fetchAll();
+$all_users = [];
+
+foreach ($students as $s) {
+    $all_users[] = [
+        'type'         => 'student',
+        'id'           => $s['__id'],
+        'display_name' => $s['name'] ?? '',
+        'username'     => $s['username'] ?? '',
+        'email'        => $s['email'] ?? '',
+        'phone'        => $s['phone'] ?? '',
+        'status'       => $s['status'] ?? 'active',
+        'created_at'   => $s['createdAt'] ?? '',
+    ];
+}
+
+foreach ($orgs as $o) {
+    $all_users[] = [
+        'type'         => 'organization',
+        'id'           => $o['__id'],
+        'display_name' => $o['organizationName'] ?? '',
+        'username'     => $o['username'] ?? '',
+        'email'        => $o['email'] ?? '',
+        'phone'        => $o['phone'] ?? '',
+        'status'       => $o['status'] ?? 'active',
+        'created_at'   => $o['createdAt'] ?? '',
+    ];
+}
+
+// Sort combined users by created_at DESC
+usort($all_users, function($a, $b) {
+    return strcmp($b['created_at'], $a['created_at']);
+});
 
 /* Stats for page header */
-$total_students = (int) $pdo->query("SELECT COUNT(*) FROM students")->fetchColumn();
-$total_orgs = (int) $pdo->query("SELECT COUNT(*) FROM organizations")->fetchColumn();
+$total_students = count($students);
+$total_orgs = count($orgs);
 $total_users = $total_students + $total_orgs;
-$active_users = (int) $pdo->query("SELECT (SELECT COUNT(*) FROM students WHERE status='active') + (SELECT COUNT(*) FROM organizations WHERE status='active')")->fetchColumn();
+
+$active_users = 0;
+foreach ($all_users as $u) {
+    if ($u['status'] === 'active') $active_users++;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">

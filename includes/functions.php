@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/db.php';
 
 if (!defined('LAWABLE_BASE_PATH')) {
     define('LAWABLE_BASE_PATH', '/lawable');

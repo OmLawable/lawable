@@ -7,60 +7,56 @@ require_once __DIR__ . '/../../includes/functions.php';
 start_secure_session();
 require_login('organization');
 
-$pdo = get_pdo();
-$user = $_SESSION['user'];
+require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../includes/firestore.php';
+start_secure_session();
+
+$user = require_login('organization');
+$db = get_firestore();
 $errors = [];
 $success = '';
 
-function fetch_org_profile(PDO $pdo, int $orgId): array
+function fetch_org_profile(FirestoreClient $db, string $orgUid): array
 {
-    $stmt = $pdo->prepare(
-        'SELECT
-            o.id,
-            o.organization_name,
-            o.contact_person,
-            o.email,
-            o.phone,
-            op.display_name,
-            op.official_email,
-            op.organization_type,
-            op.tagline,
-            op.about_description,
-            op.year_established,
-            op.website_url
-        FROM organizations o
-        LEFT JOIN organization_profiles op ON op.organization_id = o.id
-        WHERE o.id = :org_id
-        LIMIT 1'
-    );
-    $stmt->execute([':org_id' => $orgId]);
-
-    $profile = $stmt->fetch();
+    $profile = $db->get('organizations', $orgUid);
     if (!$profile) {
         throw new RuntimeException('Organization account not found.');
     }
 
-    return $profile;
+    return [
+        'id'                => $profile['__id'] ?? $orgUid,
+        'organization_name' => $profile['organizationName'] ?? '',
+        'contact_person'    => $profile['contactPerson'] ?? '',
+        'email'             => $profile['email'] ?? '',
+        'phone'             => $profile['phone'] ?? '',
+        'display_name'      => $profile['displayName'] ?? '',
+        'official_email'    => $profile['officialEmail'] ?? '',
+        'organization_type' => $profile['organizationType'] ?? '',
+        'tagline'           => $profile['tagline'] ?? '',
+        'about_description' => $profile['aboutDescription'] ?? '',
+        'year_established'  => $profile['yearEstablished'] ?? '',
+        'website_url'       => $profile['websiteUrl'] ?? '',
+    ];
 }
 
 try {
-    $profile = fetch_org_profile($pdo, (int) $user['id']);
+    $profile = fetch_org_profile($db, (string) $user['id']);
 } catch (Throwable $exception) {
     $profile = [
-        'id' => (int) $user['id'],
+        'id'                => (string) $user['id'],
         'organization_name' => $user['organization_name'] ?? '',
-        'contact_person' => $user['name'] ?? '',
-        'email' => $user['email'] ?? '',
-        'phone' => $user['phone'] ?? '',
-        'display_name' => '',
-        'official_email' => '',
+        'contact_person'    => $user['name'] ?? '',
+        'email'             => $user['email'] ?? '',
+        'phone'             => $user['phone'] ?? '',
+        'display_name'      => '',
+        'official_email'    => '',
         'organization_type' => '',
-        'tagline' => '',
+        'tagline'           => '',
         'about_description' => '',
-        'year_established' => '',
-        'website_url' => '',
+        'year_established'  => '',
+        'website_url'       => '',
     ];
-    $errors[] = 'Please create the organization_profiles table before editing profiles.';
+    $errors[] = 'Profile not found: ' . $exception->getMessage();
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -68,15 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         verify_csrf_token($_POST['csrf_token'] ?? '');
 
         $organizationName = trim((string) ($_POST['organization_name'] ?? ''));
-        $contactPerson = trim((string) ($_POST['contact_person'] ?? ''));
-        $displayName = trim((string) ($_POST['display_name'] ?? ''));
+        $contactPerson    = trim((string) ($_POST['contact_person'] ?? ''));
+        $displayName      = trim((string) ($_POST['display_name'] ?? ''));
         $organizationType = trim((string) ($_POST['organization_type'] ?? ''));
-        $tagline = trim((string) ($_POST['tagline'] ?? ''));
+        $tagline          = trim((string) ($_POST['tagline'] ?? ''));
         $aboutDescription = trim((string) ($_POST['about_description'] ?? ''));
-        $yearEstablished = trim((string) ($_POST['year_established'] ?? ''));
-        $websiteUrl = trim((string) ($_POST['website_url'] ?? ''));
-        $officialEmail = trim((string) ($_POST['official_email'] ?? ''));
-        $phone = trim((string) ($_POST['phone'] ?? ''));
+        $yearEstablished  = trim((string) ($_POST['year_established'] ?? ''));
+        $websiteUrl       = trim((string) ($_POST['website_url'] ?? ''));
+        $officialEmail    = trim((string) ($_POST['official_email'] ?? ''));
+        $phone            = trim((string) ($_POST['phone'] ?? ''));
 
         if ($organizationName === '' || strlen($organizationName) < 2) {
             throw new RuntimeException('Organization name must be at least 2 characters.');
@@ -112,6 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new RuntimeException('About description must be 2000 characters or fewer.');
         }
 
+        $yearEstInt = null;
         if ($yearEstablished !== '') {
             if (!preg_match('/^[0-9]{4}$/', $yearEstablished)) {
                 throw new RuntimeException('Year established must be a 4-digit year (e.g., 2020).');
@@ -121,6 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($year > $currentYear || $year < 1800) {
                 throw new RuntimeException('Year established must be between 1800 and ' . $currentYear . '.');
             }
+            $yearEstInt = $year;
         }
 
         if ($websiteUrl !== '' && !filter_var($websiteUrl, FILTER_VALIDATE_URL)) {
@@ -135,48 +133,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new RuntimeException('Official email must be 255 characters or fewer.');
         }
 
-        $pdo->beginTransaction();
-
-        $stmt = $pdo->prepare('UPDATE organizations SET organization_name = :organization_name, contact_person = :contact_person, phone = :phone WHERE id = :org_id');
-        $stmt->execute([
-            ':organization_name' => $organizationName,
-            ':contact_person' => $contactPerson,
-            ':phone' => $phone !== '' ? $phone : null,
-            ':org_id' => (int) $user['id'],
+        // Update Firestore organization document
+        $db->update('organizations', (string) $user['id'], [
+            'organizationName' => $organizationName,
+            'contactPerson'    => $contactPerson,
+            'displayName'      => $displayName,
+            'organizationType' => $organizationType,
+            'tagline'          => $tagline,
+            'aboutDescription' => $aboutDescription,
+            'yearEstablished'  => $yearEstInt,
+            'websiteUrl'       => $websiteUrl,
+            'officialEmail'    => $officialEmail,
+            'phone'            => $phone,
+            'updatedAt'        => FirestoreClient::now()
         ]);
 
-        $stmt = $pdo->prepare(
-            'INSERT INTO organization_profiles
-                (organization_id, official_email, display_name, organization_type, tagline, about_description, year_established, website_url)
-            VALUES
-                (:organization_id, :official_email, :display_name, :organization_type, :tagline, :about_description, :year_established, :website_url)
-            ON DUPLICATE KEY UPDATE
-                official_email = VALUES(official_email),
-                display_name = VALUES(display_name),
-                organization_type = VALUES(organization_type),
-                tagline = VALUES(tagline),
-                about_description = VALUES(about_description),
-                year_established = VALUES(year_established),
-                website_url = VALUES(website_url)'
-        );
-        $stmt->execute([
-            ':organization_id' => (int) $user['id'],
-            ':official_email' => $officialEmail !== '' ? $officialEmail : null,
-            ':display_name' => $displayName !== '' ? $displayName : null,
-            ':organization_type' => $organizationType !== '' ? $organizationType : null,
-            ':tagline' => $tagline !== '' ? $tagline : null,
-            ':about_description' => $aboutDescription !== '' ? $aboutDescription : null,
-            ':year_established' => $yearEstablished !== '' ? (int) $yearEstablished : null,
-            ':website_url' => $websiteUrl !== '' ? $websiteUrl : null,
-        ]);
-
-        $pdo->commit();
         $success = 'Organization profile saved successfully.';
-        $profile = fetch_org_profile($pdo, (int) $user['id']);
+        $profile = fetch_org_profile($db, (string) $user['id']);
+
+        $_SESSION['user']['name'] = $contactPerson;
+        $_SESSION['user']['organization_name'] = $organizationName;
+        $_SESSION['user']['phone'] = $phone;
+
     } catch (Throwable $exception) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
         $errors[] = $exception->getMessage();
     }
 }

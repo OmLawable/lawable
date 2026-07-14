@@ -1,0 +1,153 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper Functions ─────────────────────────────────────────────────────
+
+    // Checks if the user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Checks if the user is accessing their own document
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    // Lookup functions to verify roles directly from Firestore collections
+    function isAdmin() {
+      return isAuth() && 
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function isOrg() {
+      return isAuth() && 
+        exists(/databases/$(database)/documents/organizations/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/organizations/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function isStudent() {
+      return isAuth() && 
+        exists(/databases/$(database)/documents/students/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/students/$(request.auth.uid)).data.status == 'active';
+    }
+
+    // ── Rules for Collections ────────────────────────────────────────────────
+
+    // Students collection
+    match /students/{uid} {
+      // Admins can read/write all student profiles.
+      // Students can read/write their own profiles.
+      allow read: if isAdmin() || isOwner(uid);
+      allow write: if isAdmin() || isOwner(uid);
+    }
+
+    // Organizations collection
+    match /organizations/{uid} {
+      // Admins can read/write all org profiles.
+      // Anyone can read active org profile details (e.g. on course details pages).
+      // Orgs can write (edit) their own profile.
+      allow read: if true;
+      allow write: if isAdmin() || isOwner(uid);
+    }
+
+    // Admins collection
+    match /admins/{uid} {
+      // Only admins can read/write admin accounts.
+      allow read, write: if isAdmin();
+    }
+
+    // Courses collection
+    match /courses/{courseId} {
+      // Anyone can read published courses.
+      // Admins can read drafts/archived.
+      // Orgs can read their own courses.
+      allow read: if resource.data.status == 'published' || 
+                  isAdmin() || 
+                  (isOrg() && resource.data.organizationId == request.auth.uid);
+      
+      // Only Admins or the owning Organization can create/update/delete courses.
+      allow create, update: if isAdmin() || 
+                             (isOrg() && request.resource.data.organizationId == request.auth.uid);
+      allow delete: if isAdmin() || 
+                    (isOrg() && resource.data.organizationId == request.auth.uid);
+    }
+
+    // Enrollments collection
+    match /enrollments/{enrollmentId} {
+      // Students can read/write their own enrollments.
+      // Orgs can read enrollments for their courses.
+      // Admins can do anything.
+      allow read: if isAdmin() || 
+                  (isAuth() && resource.data.studentId == request.auth.uid) ||
+                  (isOrg() && resource.data.organizationId == request.auth.uid);
+      
+      allow create: if isAdmin() || 
+                    (isStudent() && request.resource.data.studentId == request.auth.uid);
+      
+      allow update, delete: if isAdmin() || 
+                            (isAuth() && resource.data.studentId == request.auth.uid);
+    }
+
+    // Progress collection
+    match /progress/{progressId} {
+      // Students can read/write their own progress records.
+      // Admins can do anything.
+      allow read, write: if isAdmin() || 
+                            (isAuth() && resource.data.studentId == request.auth.uid);
+    }
+
+    // Certificates collection
+    match /certificates/{certNum} {
+      // Certificates are public (for verification sharing).
+      // Only admins can issue/update certificates.
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Announcements collection
+    match /announcements/{annId} {
+      // Anyone can read published announcements.
+      // Only admins can write.
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Verification Requests collection
+    match /verificationRequests/{orgUid} {
+      // Orgs can read/write their own requests.
+      // Admins can read/write all requests.
+      allow read: if isAdmin() || isOwner(orgUid);
+      allow write: if isAdmin() || isOwner(orgUid);
+    }
+
+    // Support Tickets collection
+    match /supportTickets/{ticketId} {
+      // Users can read/create their own tickets.
+      // Admins can read/update all tickets.
+      allow read: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Content Reports collection
+    match /contentReports/{reportId} {
+      // Only admins can read/write reports.
+      // Any authenticated user can file a report.
+      allow read: if isAdmin();
+      allow create: if isAuth() && request.resource.data.reportedById == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Activity Logs collection
+    match /activityLogs/{logId} {
+      // Only admins can view logs.
+      // Backend/authenticated logs can be created.
+      allow read: if isAdmin();
+      allow create: if isAuth();
+      allow update, delete: if false; // Logs are immutable
+    }
+  }
+}

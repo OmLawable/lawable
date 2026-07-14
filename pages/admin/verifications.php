@@ -1,36 +1,52 @@
 <?php
-declare(strict_types=1);
-
 require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../includes/firestore.php';
 start_secure_session();
 
 $user = require_login('admin');
+$db = get_firestore();
 
-$pdo = get_pdo();
+/* ── Fetch all verifications from Firestore ── */
+$verifDocs = $db->query('verificationRequests', [], 100);
+$all_verifications = [];
 
-/* ── Fetch all verifications with org details ── */
-$stmt = $pdo->query("
-    SELECT
-        v.id,
-        v.document_type,
-        v.file_path,
-        v.status,
-        v.admin_notes,
-        v.submitted_at,
-        v.reviewed_at,
-        o.id AS org_id,
-        o.organization_name,
-        o.email,
-        o.contact_person,
-        o.phone,
-        o.created_at AS org_created_at,
-        a.name AS reviewer_name
-    FROM verification_documents v
-    JOIN organizations o ON v.organization_id = o.id
-    LEFT JOIN admins a ON v.reviewed_by = a.id
-    ORDER BY v.submitted_at DESC
-");
-$all_verifications = $stmt->fetchAll();
+foreach ($verifDocs as $vd) {
+    $orgId = $vd['organizationId'] ?? '';
+    if (empty($orgId)) continue;
+
+    $org = $db->get('organizations', $orgId);
+    if (!$org) continue;
+
+    $reviewerName = 'Admin';
+    if (!empty($vd['reviewedBy'])) {
+        $reviewer = $db->get('admins', $vd['reviewedBy']);
+        if ($reviewer) {
+            $reviewerName = $reviewer['name'] ?? 'Admin';
+        }
+    }
+
+    $all_verifications[] = [
+        'id'                => $vd['__id'],
+        'document_type'     => $vd['documentType'] ?? 'registration',
+        'file_path'         => $vd['filePath'] ?? '',
+        'status'            => $vd['status'] ?? 'pending',
+        'admin_notes'       => $vd['adminNotes'] ?? '',
+        'submitted_at'      => $vd['submittedAt'] ?? '',
+        'reviewed_at'       => $vd['reviewedAt'] ?? '',
+        'org_id'            => $orgId,
+        'organization_name' => $org['organizationName'] ?? '',
+        'email'             => $org['email'] ?? '',
+        'contact_person'    => $org['contactPerson'] ?? '',
+        'phone'             => $org['phone'] ?? '',
+        'org_created_at'    => $org['createdAt'] ?? '',
+        'reviewer_name'     => $reviewerName,
+    ];
+}
+
+// Sort verifications by submitted_at DESC
+usort($all_verifications, function($a, $b) {
+    return strcmp($b['submitted_at'], $a['submitted_at']);
+});
 
 /* Stats */
 $total_verifications = count($all_verifications);
@@ -49,15 +65,34 @@ foreach ($all_verifications as $v) {
 }
 
 /* Support tickets (for the tickets section) */
-$tickets = $pdo->query("
-    SELECT
-        id, title, message, user_type, user_id, priority, status, created_at
-    FROM support_tickets
-    ORDER BY
-        FIELD(priority, 'urgent','high','medium','low'),
-        created_at DESC
-    LIMIT 8
-")->fetchAll();
+$ticketDocs = $db->query('supportTickets', [], 100);
+
+// Sort tickets by status priority then createdAt DESC in PHP
+$priorityWeights = ['urgent' => 4, 'high' => 3, 'medium' => 2, 'low' => 1];
+usort($ticketDocs, function($a, $b) use ($priorityWeights) {
+    $pA = $priorityWeights[$a['priority'] ?? 'medium'] ?? 2;
+    $pB = $priorityWeights[$b['priority'] ?? 'medium'] ?? 2;
+    if ($pA !== $pB) {
+        return $pB <=> $pA; // higher priority weight first
+    }
+    return strcmp($b['createdAt'] ?? '', $a['createdAt'] ?? '');
+});
+
+// Slice first 8
+$ticketDocs = array_slice($ticketDocs, 0, 8);
+$tickets = [];
+foreach ($ticketDocs as $td) {
+    $tickets[] = [
+        'id'         => $td['__id'],
+        'title'      => $td['title'] ?? '',
+        'message'    => $td['message'] ?? '',
+        'user_type'  => $td['userType'] ?? '',
+        'user_id'    => $td['userId'] ?? '',
+        'priority'   => $td['priority'] ?? 'medium',
+        'status'     => $td['status'] ?? 'open',
+        'created_at' => $td['createdAt'] ?? '',
+    ];
+}
 
 $urgent_tickets = 0;
 $open_tickets_count = 0;
@@ -71,16 +106,34 @@ foreach ($tickets as $t) {
 }
 
 /* Content reports */
-$reports = $pdo->query("
-    SELECT
-        r.id, r.reason, r.target_type, r.target_id, r.status, r.created_at,
-        r.reported_by_type, r.reported_by_id
-    FROM content_reports r
-    ORDER BY
-        FIELD(r.status, 'open','under_review','resolved','dismissed'),
-        r.created_at DESC
-    LIMIT 6
-")->fetchAll();
+$reportDocs = $db->query('contentReports', [], 100);
+
+// Sort reports: open/under_review first, then resolved/dismissed, then createdAt DESC
+$statusWeights = ['open' => 4, 'under_review' => 3, 'resolved' => 2, 'dismissed' => 1];
+usort($reportDocs, function($a, $b) use ($statusWeights) {
+    $wA = $statusWeights[$a['status'] ?? 'open'] ?? 4;
+    $wB = $statusWeights[$b['status'] ?? 'open'] ?? 4;
+    if ($wA !== $wB) {
+        return $wB <=> $wA;
+    }
+    return strcmp($b['createdAt'] ?? '', $a['createdAt'] ?? '');
+});
+
+// Slice first 6
+$reportDocs = array_slice($reportDocs, 0, 6);
+$reports = [];
+foreach ($reportDocs as $rd) {
+    $reports[] = [
+        'id'               => $rd['__id'],
+        'reason'           => $rd['reason'] ?? '',
+        'target_type'      => $rd['targetType'] ?? '',
+        'target_id'        => $rd['targetId'] ?? '',
+        'status'           => $rd['status'] ?? 'open',
+        'created_at'       => $rd['createdAt'] ?? '',
+        'reported_by_type' => $rd['reportedByType'] ?? '',
+        'reported_by_id'   => $rd['reportedById'] ?? '',
+    ];
+}
 
 $open_reports = 0;
 foreach ($reports as $r) {
@@ -742,23 +795,23 @@ foreach ($reports as $r) {
                   <div class="verif-actions">
                     <?php if ($v['status'] === 'pending'): ?>
                       <form method="post" action="../../api/handle_verification.php" style="display:inline;">
-                        <input type="hidden" name="doc_id" value="<?= (int) $v['id'] ?>" />
+                        <input type="hidden" name="doc_id" value="<?= e($v['id']) ?>" />
                         <input type="hidden" name="action" value="approve" />
                         <button type="submit" class="verif-btn approve">✓ Approve</button>
                       </form>
                       <form method="post" action="../../api/handle_verification.php" style="display:inline;">
-                        <input type="hidden" name="doc_id" value="<?= (int) $v['id'] ?>" />
+                        <input type="hidden" name="doc_id" value="<?= e($v['id']) ?>" />
                         <input type="hidden" name="action" value="reject" />
                         <button type="submit" class="verif-btn reject">✕ Reject</button>
                       </form>
                     <?php elseif ($v['status'] === 'under_review'): ?>
                       <form method="post" action="../../api/handle_verification.php" style="display:inline;">
-                        <input type="hidden" name="doc_id" value="<?= (int) $v['id'] ?>" />
+                        <input type="hidden" name="doc_id" value="<?= e($v['id']) ?>" />
                         <input type="hidden" name="action" value="approve" />
                         <button type="submit" class="verif-btn approve">✓ Approve</button>
                       </form>
                       <form method="post" action="../../api/handle_verification.php" style="display:inline;">
-                        <input type="hidden" name="doc_id" value="<?= (int) $v['id'] ?>" />
+                        <input type="hidden" name="doc_id" value="<?= e($v['id']) ?>" />
                         <input type="hidden" name="action" value="reject" />
                         <button type="submit" class="verif-btn reject">✕ Reject</button>
                       </form>
