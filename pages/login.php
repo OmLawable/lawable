@@ -591,7 +591,23 @@ $turnstileSiteKey = get_turnstile_site_key();
   </div>
 
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-  <script>
+  <script type="module">
+    /* ─── Firebase Auth SDK ────────────────────────────────────────────── */
+    import { initializeApp }                              from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
+    import { getAuth, signInWithEmailAndPassword,
+             createUserWithEmailAndPassword }             from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
+
+    const firebaseConfig = {
+      apiKey:            'AIzaSyDgZMSypU6KKt8t_NbcpRtgQDttjV4JXtw',
+      authDomain:        'lawable-9c1e0.firebaseapp.com',
+      projectId:         'lawable-9c1e0',
+      storageBucket:     'lawable-9c1e0.firebasestorage.app',
+      messagingSenderId: '222866591543',
+      appId:             '1:222866591543:web:7b1e55f74c9e15bb7294b2',
+    };
+    const fbApp  = initializeApp(firebaseConfig);
+    const auth   = getAuth(fbApp);
+
     /* ═══════════════════════════════════════════════
        UI Helpers: tabs, toggles, validation
        ═══════════════════════════════════════════════ */
@@ -770,33 +786,44 @@ $turnstileSiteKey = get_turnstile_site_key();
     $('su-contact')?.addEventListener('input', () => validateReq($('su-contact'), 'Contact person is required'));
 
     /* ═══════════════════════════════════════════════
-       SIGN IN — AJAX to backend/login.php
+       SIGN IN — Firebase Auth → PHP token verify
        ═══════════════════════════════════════════════ */
     $('signin').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const turnstileEnabled = !!($('si-turnstile-widget')?.dataset.sitekey);
-      const turnstileToken = $('si-turnstile-token')?.value?.trim() || '';
-      if (turnstileEnabled && !turnstileToken) {
-        showToast('Please complete the CAPTCHA challenge.', 'error');
+
+      const btn   = $('signin-btn');
+      const email = $('si-email').value.trim();
+      const pass  = $('si-password').value;
+      const role  = $('si-role').value;
+
+      if (!email || !pass) {
+        showToast('Please enter your email and password.', 'error');
         return;
       }
 
-      const btn = $('signin-btn');
       btn.disabled = true;
       btn.textContent = 'Signing in…';
 
-      const body = new URLSearchParams({
-        username_or_email: $('si-email').value.trim(),
-        password: $('si-password').value,
-        role: $('si-role').value,
-        'cf-turnstile-response': turnstileToken,
-      });
+      const friendlyErrors = {
+        'auth/invalid-credential':      'Invalid email or password.',
+        'auth/user-not-found':          'No account found with that email.',
+        'auth/wrong-password':          'Incorrect password.',
+        'auth/user-disabled':           'This account has been disabled.',
+        'auth/too-many-requests':       'Too many failed attempts. Please try again later.',
+        'auth/network-request-failed':  'Network error. Please check your connection.',
+        'auth/invalid-email':           'Please enter a valid email address.',
+      };
 
       try {
-        const res = await fetch('../api/login.php', {
-          method: 'POST',
-          headers: { 'X-Requested-With': 'XMLHttpRequest' },
-          body,
+        // Step 1 — Authenticate with Firebase
+        const credential = await signInWithEmailAndPassword(auth, email, pass);
+        const idToken    = await credential.user.getIdToken();
+
+        // Step 2 — Verify token + create PHP session
+        const res  = await fetch('../api/login.php', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ idToken, role }),
         });
         const data = await res.json();
 
@@ -809,22 +836,21 @@ $turnstileSiteKey = get_turnstile_site_key();
           btn.textContent = 'Sign in';
         }
       } catch (err) {
-        showToast('Network error. Please try again.', 'error');
+        showToast(friendlyErrors[err.code] || err.message || 'Login failed.', 'error');
         btn.disabled = false;
         btn.textContent = 'Sign in';
       }
     });
 
     /* ═══════════════════════════════════════════════
-       SIGN UP — AJAX to backend/register_user.php
-                or backend/register_organization.php
+       SIGN UP — Firebase Auth → PHP profile store
        ═══════════════════════════════════════════════ */
     $('signup').addEventListener('submit', async (e) => {
       e.preventDefault();
 
       const role = qs('input[name="su-role"]:checked')?.value || 'user';
 
-      // Quick validation — skip name field when role is organization (it's hidden)
+      // Validate fields
       const checks = [
         validateReq($('su-username'), 'Username is required'),
         validateEmail($('su-email'), role === 'organization'),
@@ -838,50 +864,54 @@ $turnstileSiteKey = get_turnstile_site_key();
       }
       if (!checks.every(Boolean)) return;
 
-      const turnstileEnabled = !!($('su-turnstile-widget')?.dataset.sitekey);
-      const turnstileToken = $('su-turnstile-token')?.value?.trim() || '';
-      if (turnstileEnabled && !turnstileToken) {
-        showToast('Please complete the CAPTCHA challenge.', 'error');
-        return;
-      }
-
       const btn = $('signup-btn');
       btn.disabled = true;
       btn.textContent = 'Creating account…';
 
+      const email    = $('su-email').value.trim();
+      const password = $('su-password').value;
       const endpoint = role === 'organization'
         ? '../api/register_organization.php'
         : '../api/register_user.php';
 
-      const body = new URLSearchParams({
-        name: $('su-name').value.trim(),
-        username: $('su-username').value.trim(),
-        email: $('su-email').value.trim(),
-        password: $('su-password').value,
-        'cf-turnstile-response': turnstileToken,
-      });
-
-      if (role === 'organization') {
-        body.set('organization_name', $('su-org-name').value.trim());
-        body.set('contact_person', $('su-contact').value.trim());
-      }
+      const friendlyErrors = {
+        'auth/email-already-in-use':   'This email address is already registered.',
+        'auth/weak-password':          'Password must be at least 6 characters.',
+        'auth/invalid-email':          'Please enter a valid email address.',
+        'auth/network-request-failed': 'Network error. Please check your connection.',
+      };
 
       try {
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'X-Requested-With': 'XMLHttpRequest' },
-          body,
+        // Step 1 — Create user in Firebase Auth
+        const credential = await createUserWithEmailAndPassword(auth, email, password);
+        const idToken    = await credential.user.getIdToken();
+
+        // Step 2 — Send token + profile to PHP
+        const bodyObj = { idToken, username: $('su-username').value.trim() };
+        if (role === 'user') {
+          bodyObj.name  = $('su-name').value.trim();
+        } else {
+          bodyObj.organization_name = $('su-org-name').value.trim();
+          bodyObj.contact_person    = $('su-contact').value.trim();
+        }
+
+        const res  = await fetch(endpoint, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(bodyObj),
         });
         const data = await res.json();
 
         if (data.success) {
           showToast(data.message, 'success');
-          setTimeout(() => switchTab('signin'), 800);
+          setTimeout(() => switchTab('signin'), 1200);
         } else {
+          // PHP rejected — rollback Firebase account
+          await credential.user.delete();
           showToast(data.message || 'Registration failed.', 'error');
         }
       } catch (err) {
-        showToast('Network error. Please try again.', 'error');
+        showToast(friendlyErrors[err.code] || err.message || 'Registration failed.', 'error');
       }
 
       btn.disabled = false;
