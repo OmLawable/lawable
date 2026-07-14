@@ -3,14 +3,14 @@
 declare(strict_types=1);
 
 /**
- * api/register_user.php — Student signup with Firebase Authentication.
+ * api/register_user.php — Student signup with Firebase Authentication & Firestore.
  *
  * Flow:
  *   1. Browser JS creates the user in Firebase Auth (email + password).
  *   2. JS gets the Firebase ID token and sends it here along with
  *      name, username, and phone via AJAX (JSON body).
  *   3. This endpoint verifies the ID token, extracts the UID, and
- *      stores the profile in MySQL — no password_hash stored.
+ *      stores the profile in Firestore.
  *
  * Accepts: JSON POST  { idToken, name, username, phone }
  * Returns: JSON       { success, message }
@@ -18,6 +18,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/firebase_auth.php';
+require_once __DIR__ . '/../includes/firestore.php';
 
 start_secure_session();
 
@@ -63,30 +64,58 @@ try {
         throw new RuntimeException('Could not retrieve email from Firebase token.');
     }
 
-    // ── 3. Check for duplicate username / email / firebase_uid ───────────
-    $pdo  = get_pdo();
-    $stmt = $pdo->prepare(
-        'SELECT id FROM students WHERE email = :email OR username = :username OR firebase_uid = :uid LIMIT 1'
-    );
-    $stmt->execute([':email' => $email, ':username' => $username, ':uid' => $uid]);
+    $db = get_firestore();
 
-    if ($stmt->fetch()) {
-        throw new RuntimeException('An account already exists for that username, email, or Firebase identity.');
+    // ── 3. Check for duplicate username / email / firebase_uid ───────────
+    $existingById = $db->get('students', $uid);
+    if ($existingById !== null) {
+        throw new RuntimeException('An account already exists for this Firebase identity.');
     }
 
-    // ── 4. Insert student row (no password_hash) ──────────────────────────
-    $stmt = $pdo->prepare(
-        'INSERT INTO students (firebase_uid, name, username, email, phone, status)
-         VALUES (:firebase_uid, :name, :username, :email, :phone, :status)'
-    );
-    $stmt->execute([
-        ':firebase_uid' => $uid,
-        ':name'         => $name,
-        ':username'     => $username,
-        ':email'        => $email,
-        ':phone'        => $phone ?: null,
-        ':status'       => 'active',
-    ]);
+    $existingByEmail = $db->query('students', [['email', 'EQUAL', $email]], 1);
+    if (!empty($existingByEmail)) {
+        throw new RuntimeException('An account already exists for that email.');
+    }
+
+    $existingByUsername = $db->query('students', [['username', 'EQUAL', $username]], 1);
+    if (!empty($existingByUsername)) {
+        throw new RuntimeException('An account already exists for that username.');
+    }
+
+    // Also check organizations to make sure username/email is globally unique
+    $existingOrgEmail = $db->query('organizations', [['email', 'EQUAL', $email]], 1);
+    if (!empty($existingOrgEmail)) {
+        throw new RuntimeException('An account already exists for that email.');
+    }
+
+    $existingOrgUsername = $db->query('organizations', [['username', 'EQUAL', $username]], 1);
+    if (!empty($existingOrgUsername)) {
+        throw new RuntimeException('An account already exists for that username.');
+    }
+
+    // ── 4. Insert student document into Firestore ────────────────────────
+    $now = FirestoreClient::now();
+    $studentDoc = [
+        'name'            => $name,
+        'username'        => $username,
+        'email'           => $email,
+        'phone'           => $phone,
+        'status'          => 'active',
+        'city'            => '',
+        'bio'             => '',
+        'dateOfBirth'     => '',
+        'institution'     => '',
+        'course'          => '',
+        'yearSemester'    => '',
+        'areasOfInterest' => '',
+        'resumeFile'      => '',
+        'linkedinUrl'     => '',
+        'skills'          => '',
+        'createdAt'       => $now,
+        'updatedAt'       => $now
+    ];
+
+    $db->set('students', $studentDoc, $uid);
 
     json_response(['success' => true, 'message' => 'Student account created. You can now log in.']);
 

@@ -3,16 +3,16 @@
 declare(strict_types=1);
 
 /**
- * api/register_organization.php — Organization signup with Firebase Authentication.
+ * api/register_organization.php — Organization signup with Firebase Authentication & Firestore.
  *
  * Flow:
  *   1. Browser JS creates the user in Firebase Auth (email + password).
  *   2. JS gets the Firebase ID token and sends it here along with
  *      organization_name, contact_person, username, and phone via AJAX (JSON body).
  *   3. This endpoint verifies the ID token, extracts the UID, and
- *      stores the organization profile in MySQL — no password_hash stored.
+ *      stores the organization profile in Firestore.
  *   4. Organization status defaults to 'inactive' (pending admin approval).
- *   5. A verification_documents row is auto-created for the admin panel.
+ *   5. A verificationRequests document is auto-created for the admin panel.
  *
  * Accepts: JSON POST  { idToken, organization_name, contact_person, username, phone }
  * Returns: JSON       { success, message }
@@ -20,6 +20,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/firebase_auth.php';
+require_once __DIR__ . '/../includes/firestore.php';
 
 start_secure_session();
 
@@ -69,44 +70,70 @@ try {
         throw new RuntimeException('Could not retrieve email from Firebase token.');
     }
 
-    // ── 3. Check for duplicates ───────────────────────────────────────────
-    $pdo  = get_pdo();
-    $stmt = $pdo->prepare(
-        'SELECT id FROM organizations WHERE email = :email OR username = :username OR firebase_uid = :uid LIMIT 1'
-    );
-    $stmt->execute([':email' => $email, ':username' => $username, ':uid' => $uid]);
+    $db = get_firestore();
 
-    if ($stmt->fetch()) {
-        throw new RuntimeException('An organization already exists for that username, email, or Firebase identity.');
+    // ── 3. Check for duplicates ───────────────────────────────────────────
+    $existingById = $db->get('organizations', $uid);
+    if ($existingById !== null) {
+        throw new RuntimeException('An organization already exists for this Firebase identity.');
     }
 
-    // ── 4. Insert organization row (no password_hash) ─────────────────────
-    $stmt = $pdo->prepare(
-        'INSERT INTO organizations (firebase_uid, organization_name, contact_person, username, email, phone, status)
-         VALUES (:firebase_uid, :organization_name, :contact_person, :username, :email, :phone, :status)'
-    );
-    $stmt->execute([
-        ':firebase_uid'      => $uid,
-        ':organization_name' => $organizationName,
-        ':contact_person'    => $contactPerson,
-        ':username'          => $username,
-        ':email'             => $email,
-        ':phone'             => $phone ?: null,
-        ':status'            => 'inactive', // Requires admin approval
-    ]);
+    $existingByEmail = $db->query('organizations', [['email', 'EQUAL', $email]], 1);
+    if (!empty($existingByEmail)) {
+        throw new RuntimeException('An organization already exists for that email.');
+    }
 
-    $orgId = (int) $pdo->lastInsertId();
+    $existingByUsername = $db->query('organizations', [['username', 'EQUAL', $username]], 1);
+    if (!empty($existingByUsername)) {
+        throw new RuntimeException('An organization already exists for that username.');
+    }
 
-    // ── 5. Auto-create a pending verification document ────────────────────
-    $stmt = $pdo->prepare(
-        'INSERT INTO verification_documents (organization_id, document_type, status, submitted_at)
-         VALUES (:oid, :type, :status, NOW())'
-    );
-    $stmt->execute([
-        ':oid'    => $orgId,
-        ':type'   => 'registration',
-        ':status' => 'pending',
-    ]);
+    // Also check students to make sure username/email is globally unique
+    $existingStudentEmail = $db->query('students', [['email', 'EQUAL', $email]], 1);
+    if (!empty($existingStudentEmail)) {
+        throw new RuntimeException('An account already exists for that email.');
+    }
+
+    $existingStudentUsername = $db->query('students', [['username', 'EQUAL', $username]], 1);
+    if (!empty($existingStudentUsername)) {
+        throw new RuntimeException('An account already exists for that username.');
+    }
+
+    // ── 4. Insert organization document into Firestore ─────────────────────
+    $now = FirestoreClient::now();
+    $orgDoc = [
+        'organizationName' => $organizationName,
+        'contactPerson'    => $contactPerson,
+        'username'         => $username,
+        'email'            => $email,
+        'phone'            => $phone,
+        'status'           => 'inactive', // Requires admin approval
+        'displayName'      => '',
+        'officialEmail'    => '',
+        'organizationType' => '',
+        'tagline'          => '',
+        'aboutDescription' => '',
+        'yearEstablished'  => null,
+        'websiteUrl'       => '',
+        'createdAt'        => $now,
+        'updatedAt'        => $now
+    ];
+
+    $db->set('organizations', $orgDoc, $uid);
+
+    // ── 5. Auto-create a pending verification request in Firestore ────────
+    $verifDoc = [
+        'organizationId' => $uid,
+        'documentType'   => 'registration',
+        'filePath'       => '',
+        'status'         => 'pending',
+        'adminNotes'     => '',
+        'submittedAt'    => $now,
+        'reviewedBy'     => '',
+        'reviewedAt'     => ''
+    ];
+
+    $db->set('verificationRequests', $verifDoc, $uid);
 
     json_response([
         'success' => true,

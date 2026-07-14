@@ -5,36 +5,43 @@ declare(strict_types=1);
 /**
  * Firebase Authentication helper for Lawable.
  *
- * Uses kreait/firebase-tokens (v3.x — PHP 8.0 compatible) to verify
- * Firebase ID tokens sent from the browser after a successful sign-in.
+ * Uses kreait/firebase-php v8.x (full Admin SDK, PHP 8.3 compatible).
+ * Replaces the old kreait/firebase-tokens v3 standalone verifier.
  *
- * Service account key must be at: C:\xampp\firebase\lawable-service-account.json
+ * Service account key: C:\xampp\firebase\lawable-service-account.json
  */
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Kreait\Firebase\JWT\IdTokenVerifier;
-use Kreait\Firebase\JWT\Error\IdTokenVerificationFailed;
+use Kreait\Firebase\Factory;
+use Kreait\Firebase\Exception\Auth\FailedToVerifyToken;
 
-/**
- * Path to the Firebase service account JSON key (outside web root).
- */
 const FIREBASE_SERVICE_ACCOUNT_PATH = 'C:\\xampp\\firebase\\lawable-service-account.json';
+const FIREBASE_PROJECT_ID           = 'lawable-9c1e0';
 
 /**
- * Firebase project ID.
+ * Returns a configured Firebase Factory instance (singleton-style).
  */
-const FIREBASE_PROJECT_ID = 'lawable-9c1e0';
+function get_firebase_factory(): Factory
+{
+    static $factory = null;
+
+    if ($factory === null) {
+        $factory = (new Factory)->withServiceAccount(FIREBASE_SERVICE_ACCOUNT_PATH);
+    }
+
+    return $factory;
+}
 
 /**
  * Verify a Firebase ID token sent from the browser.
  *
- * Returns the decoded token payload array on success.
+ * Returns decoded claims array: ['uid', 'email', 'name']
  * Throws RuntimeException on failure.
  *
- * @param  string $idToken  The raw Firebase ID token from the client.
- * @return array            Decoded token claims (uid, email, etc.)
- * @throws RuntimeException If the token is invalid or expired.
+ * @param  string $idToken  Raw Firebase ID token from the client.
+ * @return array            Decoded token claims.
+ * @throws RuntimeException If token is invalid or expired.
  */
 function verify_firebase_token(string $idToken): array
 {
@@ -43,18 +50,16 @@ function verify_firebase_token(string $idToken): array
     }
 
     try {
-        $verifier = IdTokenVerifier::createWithProjectId(FIREBASE_PROJECT_ID);
-        $token    = $verifier->verifyIdToken($idToken);
-
-        // kreait/firebase-tokens v3.x: payload() returns a plain array of claims
-        $payload = $token->payload();
+        $auth         = get_firebase_factory()->createAuth();
+        $verifiedToken = $auth->verifyIdToken($idToken);
+        $claims        = $verifiedToken->claims();
 
         return [
-            'uid'   => (string) ($payload['sub']   ?? ''),
-            'email' => (string) ($payload['email'] ?? ''),
-            'name'  => (string) ($payload['name']  ?? ''),
+            'uid'   => (string) ($claims->get('sub')   ?? ''),
+            'email' => (string) ($claims->get('email') ?? ''),
+            'name'  => (string) ($claims->get('name')  ?? ''),
         ];
-    } catch (IdTokenVerificationFailed $e) {
+    } catch (FailedToVerifyToken $e) {
         throw new RuntimeException('Firebase token verification failed: ' . $e->getMessage());
     } catch (Throwable $e) {
         throw new RuntimeException('Could not verify Firebase token: ' . $e->getMessage());

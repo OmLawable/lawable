@@ -3,22 +3,19 @@
 declare(strict_types=1);
 
 /**
- * api/login.php — Firebase-based login endpoint for Lawable.
+ * api/login.php — Firebase-based login endpoint for Lawable using Firestore.
  *
  * Flow:
- *   1. Browser JS signs in via Firebase Auth (signInWithEmailAndPassword).
- *   2. JS sends { idToken, role } as a JSON body to this endpoint.
- *   3. PHP verifies the ID token, looks up the user in MySQL by firebase_uid
- *      (falling back to email for accounts not yet migrated), checks status,
- *      and writes the same $_SESSION['user'] structure as before.
- *   4. Returns { success, message, redirect } as JSON.
- *
- * Accepts: JSON POST  { idToken, role }
- * Returns: JSON       { success, message, redirect? }
+ *   1. Browser JS signs in via Firebase Auth.
+ *   2. JS sends { idToken, role } as JSON to this endpoint.
+ *   3. PHP verifies token, retrieves student/organization/admin document by UID in Firestore,
+ *      checks status, and stores the user data in $_SESSION['user'].
+ *   4. Returns { success, message, redirect } JSON.
  */
 
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/firebase_auth.php';
+require_once __DIR__ . '/../includes/firestore.php';
 
 start_secure_session();
 
@@ -44,7 +41,7 @@ try {
     }
 
     // ── Validate role ─────────────────────────────────────────────────────
-    $table = match ($role) {
+    $collection = match ($role) {
         'user'         => 'students',
         'organization' => 'organizations',
         'admin'        => 'admins',
@@ -56,62 +53,42 @@ try {
     $uid          = $firebaseUser['uid'];
     $email        = $firebaseUser['email'];
 
-    // ── Look up user in MySQL ─────────────────────────────────────────────
-    // Try firebase_uid first (new accounts), fall back to email (legacy rows)
-    $pdo = get_pdo();
+    $db = get_firestore();
 
-    $stmt = match ($role) {
-        'organization' => $pdo->prepare(
-            "SELECT id, organization_name, contact_person AS name, username, email, phone, status, firebase_uid
-             FROM {$table}
-             WHERE firebase_uid = :uid OR email = :email
-             LIMIT 1"
-        ),
-        'admin' => $pdo->prepare(
-            "SELECT id, name, username, email, '' AS phone, status, firebase_uid
-             FROM {$table}
-             WHERE firebase_uid = :uid OR email = :email
-             LIMIT 1"
-        ),
-        default => $pdo->prepare(
-            "SELECT id, name, username, email, phone, status, firebase_uid
-             FROM {$table}
-             WHERE firebase_uid = :uid OR email = :email
-             LIMIT 1"
-        ),
-    };
+    // ── Look up user in Firestore by UID ──────────────────────────────────
+    $user = $db->get($collection, $uid);
 
-    $stmt->execute([':uid' => $uid, ':email' => $email]);
-    $user = $stmt->fetch();
+    // Fallback: search by email if not matched by UID directly (e.g. legacy/third-party)
+    if (!$user) {
+        $results = $db->query($collection, [['email', 'EQUAL', $email]], 1);
+        if (!empty($results)) {
+            $user = $results[0];
+            $uid = $user['__id'];
+        }
+    }
 
     if (!$user) {
         throw new RuntimeException('No account found for this email under the selected account type. Please check your role or register first.');
     }
 
     if (($user['status'] ?? '') !== 'active') {
-        if ($role === 'organization') {
+        if ($collection === 'organizations') {
             throw new RuntimeException('Your organization account is pending admin approval. You will be notified once verified.');
         }
         throw new RuntimeException('This account is inactive. Please contact support.');
     }
 
-    // ── Backfill firebase_uid if this is a legacy account ────────────────
-    if (empty($user['firebase_uid'])) {
-        $pdo->prepare("UPDATE {$table} SET firebase_uid = :uid WHERE id = :id")
-            ->execute([':uid' => $uid, ':id' => $user['id']]);
-    }
-
-    // ── Write session (identical structure to the old system) ─────────────
+    // ── Write session (identical structure, ID is now firebase_uid string) ──
     $_SESSION['user'] = [
-        'id'    => (int) $user['id'],
-        'name'  => $user['name'],
-        'email' => $user['email'],
+        'id'    => $uid, // Store firebase_uid string instead of MySQL int ID
+        'name'  => $collection === 'organizations' ? ($user['contactPerson'] ?? '') : ($user['name'] ?? ''),
+        'email' => $user['email'] ?? '',
         'role'  => $role,
         'phone' => $user['phone'] ?? '',
     ];
 
-    if ($role === 'organization') {
-        $_SESSION['user']['organization_name'] = $user['organization_name'] ?? '';
+    if ($collection === 'organizations') {
+        $_SESSION['user']['organization_name'] = $user['organizationName'] ?? '';
     }
 
     // ── Role-based redirect ───────────────────────────────────────────────

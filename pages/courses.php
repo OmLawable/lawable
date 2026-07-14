@@ -1,16 +1,26 @@
 <?php
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/firestore.php';
 start_secure_session();
 $user = current_user();
 $isLoggedIn = $user !== null;
 $isAdmin = $isLoggedIn && ($user['role'] ?? '') === 'admin';
 $isStudent = $isLoggedIn && ($user['role'] ?? '') === 'user';
 
-$pdo = get_pdo();
+$db = get_firestore();
 
-// Fetch all published courses
-$stmt = $pdo->query("SELECT id, title, description, category, difficulty, price, rating, status, created_at FROM courses WHERE status='published' ORDER BY category, title");
-$all_courses = $stmt->fetchAll();
+// Fetch all published courses from Firestore
+$all_courses = $db->query('courses', [['status', 'EQUAL', 'published']]);
+
+// Sort by category, then title
+usort($all_courses, function($a, $b) {
+    $catA = $a['category'] ?? 'Other';
+    $catB = $b['category'] ?? 'Other';
+    if ($catA !== $catB) {
+        return strcmp($catA, $catB);
+    }
+    return strcmp($a['title'] ?? '', $b['title'] ?? '');
+});
 
 // Get unique categories
 $categories = [];
@@ -22,12 +32,11 @@ foreach ($all_courses as $c) {
 // Get student enrollments if logged in
 $enrolled_ids = [];
 if ($isStudent) {
-    $stmt = $pdo->prepare("SELECT course_id FROM course_enrollments WHERE student_id = :sid");
-    $stmt->execute([':sid' => (int) $user['id']]);
-    $enrolled_ids = array_column($stmt->fetchAll(), 'course_id');
+    $enrollments = $db->query('enrollments', [['studentId', 'EQUAL', (string) $user['id']]]);
+    $enrolled_ids = array_column($enrollments, 'courseId');
 }
 $isEnrolled = function($courseId) use ($enrolled_ids) {
-    return in_array((int) $courseId, $enrolled_ids);
+    return in_array((string) $courseId, $enrolled_ids);
 };
 
 function diffLabel(string $diff): string {
@@ -446,7 +455,7 @@ function diffBg(string $diff): string {
         $price = (float) $course['price'];
         $rating = (float) ($course['rating'] ?? 4.5);
         $diff = $course['difficulty'] ?? 'all-levels';
-        $enrolled = $isEnrolled((int) $course['id']);
+        $enrolled = $isEnrolled($course['__id']);
 
         // Pick thumb class by category
         $thumbClass = 'course-thumb-default';
@@ -472,7 +481,7 @@ function diffBg(string $diff): string {
           </div>
           <div class="course-footer-line">
             <span class="course-price"><?= $price > 0 ? '₹' . number_format($price) : '<span class="free-label">Free</span>' ?></span>
-            <span class="course-enroll-btn <?= $enrolled ? 'enrolled' : '' ?>" data-course-id="<?= (int) $course['id'] ?>" onclick="<?= $isStudent ? "enrollCourse(this, {$course['id']})" : ($isLoggedIn ? '' : "window.location='login.php'") ?>">
+            <span class="course-enroll-btn <?= $enrolled ? 'enrolled' : '' ?>" data-course-id="<?= e($course['__id']) ?>" onclick="<?= $isStudent ? "enrollCourse(this, '" . e($course['__id']) . "')" : ($isLoggedIn ? '' : "window.location='login.php'") ?>">
               <?= $enrolled ? '✓ Enrolled' : ($isLoggedIn ? 'Enroll →' : 'Join →') ?>
             </span>
           </div>

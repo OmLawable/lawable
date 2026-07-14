@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-// API endpoint for student dashboard AJAX actions
+// API endpoint for student dashboard AJAX actions using Firestore
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/firestore.php';
 start_secure_session();
 
 $action = $_GET['action'] ?? '';
@@ -14,9 +15,15 @@ if ($action === 'dismiss_nudge') {
         http_response_code(405);
         exit;
     }
-    $pdo = get_pdo();
-    $stmt = $pdo->prepare("UPDATE student_profiles SET completion_nudge_dismissed = 1 WHERE student_id = :sid");
-    $stmt->execute([':sid' => (int) $user['id']]);
+    
+    $db = get_firestore();
+    $studentId = (string) $user['id'];
+
+    $db->update('students', $studentId, [
+        'completionNudgeDismissed' => true,
+        'updatedAt'                => FirestoreClient::now()
+    ]);
+    
     json_response(['success' => true]);
 }
 

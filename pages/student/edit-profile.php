@@ -2,85 +2,79 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../includes/firestore.php';
 start_secure_session();
 
 $user = require_login('user');
-$pdo = get_pdo();
+$db = get_firestore();
 $errors = [];
 $success = '';
 
-function fetch_student_profile(PDO $pdo, int $studentId): array
+function fetch_student_profile(FirestoreClient $db, string $studentUid): array
 {
-    $stmt = $pdo->prepare(
-        'SELECT
-            s.id,
-            s.name,
-            s.username,
-            s.email,
-            s.phone,
-            sp.city,
-            sp.bio,
-            sp.date_of_birth,
-            sp.institution,
-            sp.course,
-            sp.year_semester,
-            sp.areas_of_interest,
-            sp.resume_file,
-            sp.linkedin_url,
-            sp.skills
-        FROM students s
-        LEFT JOIN student_profiles sp ON sp.student_id = s.id
-        WHERE s.id = :student_id
-        LIMIT 1'
-    );
-    $stmt->execute([':student_id' => $studentId]);
-
-    $profile = $stmt->fetch();
+    $profile = $db->get('students', $studentUid);
     if (!$profile) {
         throw new RuntimeException('Student account not found.');
     }
 
-    return $profile;
+    // Adapt fields to match the old array keys used in the HTML templates
+    return [
+        'id'                => $profile['__id'] ?? $studentUid,
+        'name'              => $profile['name'] ?? '',
+        'username'          => $profile['username'] ?? '',
+        'email'             => $profile['email'] ?? '',
+        'phone'             => $profile['phone'] ?? '',
+        'city'              => $profile['city'] ?? '',
+        'bio'               => $profile['bio'] ?? '',
+        'date_of_birth'     => $profile['dateOfBirth'] ?? '',
+        'institution'       => $profile['institution'] ?? '',
+        'course'            => $profile['course'] ?? '',
+        'year_semester'     => $profile['yearSemester'] ?? '',
+        'areas_of_interest' => $profile['areasOfInterest'] ?? '',
+        'resume_file'       => $profile['resumeFile'] ?? '',
+        'linkedin_url'      => $profile['linkedinUrl'] ?? '',
+        'skills'            => $profile['skills'] ?? '',
+    ];
 }
 
 try {
-    $profile = fetch_student_profile($pdo, (int) $user['id']);
+    $profile = fetch_student_profile($db, (string) $user['id']);
 } catch (Throwable $exception) {
     $profile = [
-        'id' => (int) $user['id'],
-        'name' => $user['name'] ?? '',
-        'username' => $user['username'] ?? '',
-        'email' => $user['email'] ?? '',
-        'phone' => $user['phone'] ?? '',
-        'city' => '',
-        'bio' => '',
-        'date_of_birth' => '',
-        'institution' => '',
-        'course' => '',
-        'year_semester' => '',
+        'id'                => (string) $user['id'],
+        'name'              => $user['name'] ?? '',
+        'username'          => $user['username'] ?? '',
+        'email'             => $user['email'] ?? '',
+        'phone'             => $user['phone'] ?? '',
+        'city'              => '',
+        'bio'               => '',
+        'date_of_birth'     => '',
+        'institution'       => '',
+        'course'            => '',
+        'year_semester'     => '',
         'areas_of_interest' => '',
-        'resume_file' => '',
-        'linkedin_url' => '',
-        'skills' => '',
+        'resume_file'       => '',
+        'linkedin_url'      => '',
+        'skills'            => '',
     ];
-    $errors[] = 'Please create the student_profiles table before editing profiles.';
+    $errors[] = 'Profile not found: ' . $exception->getMessage();
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         verify_csrf_token($_POST['csrf_token'] ?? '');
 
-        $name = trim((string) ($_POST['name'] ?? ''));
-        $phone = trim((string) ($_POST['phone'] ?? ''));
-        $city = trim((string) ($_POST['city'] ?? ''));
-        $bio = trim((string) ($_POST['bio'] ?? ''));
-        $dateOfBirth = trim((string) ($_POST['date_of_birth'] ?? ''));
-        $institution = trim((string) ($_POST['institution'] ?? ''));
-        $course = trim((string) ($_POST['course'] ?? ''));
-        $yearSemester = trim((string) ($_POST['year_semester'] ?? ''));
+        $name            = trim((string) ($_POST['name'] ?? ''));
+        $phone           = trim((string) ($_POST['phone'] ?? ''));
+        $city            = trim((string) ($_POST['city'] ?? ''));
+        $bio             = trim((string) ($_POST['bio'] ?? ''));
+        $dateOfBirth     = trim((string) ($_POST['date_of_birth'] ?? ''));
+        $institution     = trim((string) ($_POST['institution'] ?? ''));
+        $course          = trim((string) ($_POST['course'] ?? ''));
+        $yearSemester    = trim((string) ($_POST['year_semester'] ?? ''));
         $areasOfInterest = trim((string) ($_POST['areas_of_interest'] ?? ''));
-        $linkedinUrl = trim((string) ($_POST['linkedin_url'] ?? ''));
-        $skills = trim((string) ($_POST['skills'] ?? ''));
+        $linkedinUrl     = trim((string) ($_POST['linkedin_url'] ?? ''));
+        $skills          = trim((string) ($_POST['skills'] ?? ''));
         
         $resumeFile = $profile['resume_file'] ?? '';
         
@@ -104,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 mkdir($uploadDir, 0755, true);
             }
             
-            $studentId = (int) $user['id'];
+            $studentId = (string) $user['id'];
             $fileExt = pathinfo($resumeUpload['name'], PATHINFO_EXTENSION);
             $newFileName = 'resume_' . $studentId . '_' . time() . '.' . $fileExt;
             $filePath = $uploadDir . $newFileName;
@@ -115,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Delete old resume file if it exists
             if ($resumeFile !== '' && file_exists($uploadDir . $resumeFile)) {
-                unlink($uploadDir . $resumeFile);
+                @unlink($uploadDir . $resumeFile);
             }
             
             $resumeFile = $newFileName;
@@ -165,57 +159,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new RuntimeException('Please enter a valid LinkedIn URL.');
         }
 
-        $pdo->beginTransaction();
-
-        $stmt = $pdo->prepare('UPDATE students SET name = :name, phone = :phone WHERE id = :student_id');
-        $stmt->execute([
-            ':name' => $name,
-            ':phone' => $phone !== '' ? $phone : null,
-            ':student_id' => (int) $user['id'],
+        // Update Firestore student document (combines student info and profile fields)
+        $db->update('students', (string) $user['id'], [
+            'name'            => $name,
+            'phone'           => $phone,
+            'city'            => $city,
+            'bio'             => $bio,
+            'dateOfBirth'     => $dateOfBirth,
+            'institution'     => $institution,
+            'course'          => $course,
+            'yearSemester'    => $yearSemester,
+            'areasOfInterest' => $areasOfInterest,
+            'linkedinUrl'     => $linkedinUrl,
+            'skills'          => $skills,
+            'resumeFile'      => $resumeFile,
+            'updatedAt'       => FirestoreClient::now()
         ]);
-
-        $stmt = $pdo->prepare(
-            'INSERT INTO student_profiles
-                (student_id, city, bio, date_of_birth, institution, course, year_semester, areas_of_interest, linkedin_url, skills, resume_file)
-            VALUES
-                (:student_id, :city, :bio, :date_of_birth, :institution, :course, :year_semester, :areas_of_interest, :linkedin_url, :skills, :resume_file)
-            ON DUPLICATE KEY UPDATE
-                city = VALUES(city),
-                bio = VALUES(bio),
-                date_of_birth = VALUES(date_of_birth),
-                institution = VALUES(institution),
-                course = VALUES(course),
-                year_semester = VALUES(year_semester),
-                areas_of_interest = VALUES(areas_of_interest),
-                linkedin_url = VALUES(linkedin_url),
-                skills = VALUES(skills),
-                resume_file = VALUES(resume_file)'
-        );
-        $stmt->execute([
-            ':student_id' => (int) $user['id'],
-            ':city' => $city !== '' ? $city : null,
-            ':bio' => $bio !== '' ? $bio : null,
-            ':date_of_birth' => $dateOfBirth !== '' ? $dateOfBirth : null,
-            ':institution' => $institution !== '' ? $institution : null,
-            ':course' => $course !== '' ? $course : null,
-            ':year_semester' => $yearSemester !== '' ? $yearSemester : null,
-            ':areas_of_interest' => $areasOfInterest !== '' ? $areasOfInterest : null,
-            ':linkedin_url' => $linkedinUrl !== '' ? $linkedinUrl : null,
-            ':skills' => $skills !== '' ? $skills : null,
-            ':resume_file' => $resumeFile !== '' ? $resumeFile : null,
-        ]);
-
-        $pdo->commit();
 
         $_SESSION['user']['name'] = $name;
         $_SESSION['user']['phone'] = $phone;
 
         $success = 'Profile saved successfully.';
-        $profile = fetch_student_profile($pdo, (int) $user['id']);
+        $profile = fetch_student_profile($db, (string) $user['id']);
     } catch (Throwable $exception) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
         $errors[] = $exception->getMessage();
     }
 }
