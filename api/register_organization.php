@@ -2,175 +2,117 @@
 
 declare(strict_types=1);
 
+/**
+ * api/register_organization.php — Organization signup with Firebase Authentication.
+ *
+ * Flow:
+ *   1. Browser JS creates the user in Firebase Auth (email + password).
+ *   2. JS gets the Firebase ID token and sends it here along with
+ *      organization_name, contact_person, username, and phone via AJAX (JSON body).
+ *   3. This endpoint verifies the ID token, extracts the UID, and
+ *      stores the organization profile in MySQL — no password_hash stored.
+ *   4. Organization status defaults to 'inactive' (pending admin approval).
+ *   5. A verification_documents row is auto-created for the admin panel.
+ *
+ * Accepts: JSON POST  { idToken, organization_name, contact_person, username, phone }
+ * Returns: JSON       { success, message }
+ */
+
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/firebase_auth.php';
+
 start_secure_session();
 
-$errors = [];
-$success = '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    try {
-        $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
-
-        if (!$isAjax) {
-            verify_csrf_token($_POST['csrf_token'] ?? '');
-        }
-
-        $organizationName = trim((string) ($_POST['organization_name'] ?? ''));
-        $contactPerson = trim((string) ($_POST['contact_person'] ?? ''));
-        $username = trim((string) ($_POST['username'] ?? ''));
-        $email = trim((string) ($_POST['email'] ?? ''));
-        $password = (string) ($_POST['password'] ?? '');
-        $phone = trim((string) ($_POST['phone'] ?? ''));
-
-        if ($organizationName === '' || $contactPerson === '' || $username === '' || $email === '' || $password === '') {
-            throw new RuntimeException('Please fill in all required fields.');
-        }
-
-        if (strlen($username) < 3 || !preg_match('/^[a-zA-Z0-9._-]+$/', $username)) {
-            throw new RuntimeException('Username may only contain letters, numbers, dots, underscores, or hyphens.');
-        }
-
-        if (!is_valid_email($email)) {
-            throw new RuntimeException('Please enter a valid email address.');
-        }
-
-        if (strlen($password) < 8) {
-            throw new RuntimeException('Password must be at least 8 characters long.');
-        }
-
-        $turnstileToken = trim((string) ($_POST['cf-turnstile-response'] ?? ''));
-        if (!verify_turnstile_token($turnstileToken)) {
-            throw new RuntimeException('Please complete the CAPTCHA challenge.');
-        }
-
-        $pdo = get_pdo();
-        $stmt = $pdo->prepare('SELECT id FROM organizations WHERE email = :email OR username = :username LIMIT 1');
-        $stmt->execute([':email' => $email, ':username' => $username]);
-
-        if ($stmt->fetch()) {
-            throw new RuntimeException('An organization account already exists for that username or email address.');
-        }
-
-        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-        $stmt = $pdo->prepare('INSERT INTO organizations (organization_name, contact_person, username, email, password_hash, phone, status) VALUES (:organization_name, :contact_person, :username, :email, :password_hash, :phone, :status)');
-        $stmt->execute([
-            ':organization_name' => $organizationName,
-            ':contact_person' => $contactPerson,
-            ':username' => $username,
-            ':email' => $email,
-            ':password_hash' => $passwordHash,
-            ':phone' => $phone ?: null,
-            ':status' => 'inactive',
-        ]);
-
-        $orgId = (int) $pdo->lastInsertId();
-
-        // Auto-create a verification document so it appears in admin panel
-        $stmt = $pdo->prepare('INSERT INTO verification_documents (organization_id, document_type, status, submitted_at) VALUES (:oid, :type, :status, NOW())');
-        $stmt->execute([
-            ':oid' => $orgId,
-            ':type' => 'registration',
-            ':status' => 'pending',
-        ]);
-
-        if ($isAjax) {
-            json_response(['success' => true, 'message' => 'Registration submitted. Your organization is pending admin approval. You will be able to log in once verified.']);
-        }
-
-        $success = 'Registration submitted. Your organization is pending admin approval. You will be able to log in once verified.';
-    } catch (RuntimeException $exception) {
-        $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
-        if ($isAjax) {
-            json_response(['success' => false, 'message' => $exception->getMessage()], 400);
-        }
-        $errors[] = $exception->getMessage();
-    }
+// ── Only accept POST ──────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    json_response(['success' => false, 'message' => 'Method not allowed.'], 405);
 }
 
-$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
-if ($isAjax) {
-    if ($success) {
-        json_response(['success' => true, 'message' => $success]);
-    }
-    json_response(['success' => false, 'message' => $errors[0] ?? 'Registration failed.'], 400);
+// ── Read JSON body ────────────────────────────────────────────────────────
+$body    = (string) file_get_contents('php://input');
+$payload = json_decode($body, true);
+
+if (!is_array($payload)) {
+    json_response(['success' => false, 'message' => 'Invalid request format.'], 400);
 }
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Register as Organization — Lawable</title>
-    <link rel="stylesheet" href="../../assets/css/lawable.css" />
-    <style>
-        body { font-family: Inter, sans-serif; background: #07111f; color: #f7f7f2; margin: 0; }
-        main { min-height: 100vh; display: grid; place-items: center; padding: 2rem; }
-        .card { width: min(100%, 520px); background: rgba(255,255,255,0.08); padding: 2rem; border-radius: 24px; backdrop-filter: blur(16px); }
-        .field { display:flex; flex-direction:column; gap:0.35rem; margin-bottom: 1rem; }
-        label { font-weight:600; }
-        input, select { padding:0.8rem 0.95rem; border-radius:12px; border:1px solid rgba(255,255,255,0.16); background:#10233f; color:#fff; }
-        button { background:#f2c94c; color:#07111f; border:0; padding:0.9rem 1rem; border-radius:999px; font-weight:700; cursor:pointer; }
-        .alert { padding:0.8rem 1rem; margin-bottom:1rem; border-radius:12px; }
-        .alert-error { background:#7f1d1d; }
-        .alert-success { background:#14532d; }
-        a { color:#f2c94c; }
-    </style>
-</head>
-<body>
-<main>
-    <div class="card">
-        <h1>Register Your Organization</h1>
-        <p>Create an organization account to manage courses, exams, and mentorship programs.</p>
 
-        <?php if ($errors): foreach ($errors as $error): ?>
-            <div class="alert alert-error"><?= e($error) ?></div>
-        <?php endforeach; endif; ?>
-        <?php if ($success): ?>
-            <div class="alert alert-success"><?= e($success) ?></div>
-        <?php endif; ?>
+try {
+    // ── 1. Extract fields ─────────────────────────────────────────────────
+    $idToken          = trim((string) ($payload['idToken']           ?? ''));
+    $organizationName = trim((string) ($payload['organization_name'] ?? ''));
+    $contactPerson    = trim((string) ($payload['contact_person']    ?? ''));
+    $username         = trim((string) ($payload['username']          ?? ''));
+    $phone            = trim((string) ($payload['phone']             ?? ''));
 
-        <form method="post" action="register_organization.php">
-            <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>" />
+    if ($idToken === '') {
+        throw new RuntimeException('Firebase ID token is missing.');
+    }
+    if ($organizationName === '') {
+        throw new RuntimeException('Organization name is required.');
+    }
+    if ($contactPerson === '') {
+        throw new RuntimeException('Contact person name is required.');
+    }
+    if ($username === '') {
+        throw new RuntimeException('Username is required.');
+    }
+    if (strlen($username) < 3 || !preg_match('/^[a-zA-Z0-9._-]+$/', $username)) {
+        throw new RuntimeException('Username may only contain letters, numbers, dots, underscores, or hyphens (min 3 chars).');
+    }
 
-            <div class="field">
-                <label for="organization_name">Organization name</label>
-                <input id="organization_name" name="organization_name" type="text" required placeholder="e.g. National Law University" />
-            </div>
+    // ── 2. Verify Firebase ID token ───────────────────────────────────────
+    $firebaseUser = verify_firebase_token($idToken);
+    $uid          = $firebaseUser['uid'];
+    $email        = $firebaseUser['email'];
 
-            <div class="field">
-                <label for="contact_person">Contact person</label>
-                <input id="contact_person" name="contact_person" type="text" required placeholder="Full name of the contact person" />
-            </div>
+    if ($email === '') {
+        throw new RuntimeException('Could not retrieve email from Firebase token.');
+    }
 
-            <div class="field">
-                <label for="username">Username</label>
-                <input id="username" name="username" type="text" required placeholder="Choose a username, e.g. nlu_delhi" />
-            </div>
+    // ── 3. Check for duplicates ───────────────────────────────────────────
+    $pdo  = get_pdo();
+    $stmt = $pdo->prepare(
+        'SELECT id FROM organizations WHERE email = :email OR username = :username OR firebase_uid = :uid LIMIT 1'
+    );
+    $stmt->execute([':email' => $email, ':username' => $username, ':uid' => $uid]);
 
-            <div class="field">
-                <label for="email">Email</label>
-                <input id="email" name="email" type="email" required placeholder="Official email address" />
-            </div>
+    if ($stmt->fetch()) {
+        throw new RuntimeException('An organization already exists for that username, email, or Firebase identity.');
+    }
 
-            <div class="field">
-                <label for="password">Password</label>
-                <input id="password" name="password" type="password" required placeholder="At least 8 characters" />
-            </div>
+    // ── 4. Insert organization row (no password_hash) ─────────────────────
+    $stmt = $pdo->prepare(
+        'INSERT INTO organizations (firebase_uid, organization_name, contact_person, username, email, phone, status)
+         VALUES (:firebase_uid, :organization_name, :contact_person, :username, :email, :phone, :status)'
+    );
+    $stmt->execute([
+        ':firebase_uid'      => $uid,
+        ':organization_name' => $organizationName,
+        ':contact_person'    => $contactPerson,
+        ':username'          => $username,
+        ':email'             => $email,
+        ':phone'             => $phone ?: null,
+        ':status'            => 'inactive', // Requires admin approval
+    ]);
 
-            <div class="field">
-                <label for="phone">Phone (optional)</label>
-                <input id="phone" name="phone" type="tel" placeholder="Optional phone number" />
-            </div>
+    $orgId = (int) $pdo->lastInsertId();
 
-            <button type="submit">Register Organization</button>
-        </form>
+    // ── 5. Auto-create a pending verification document ────────────────────
+    $stmt = $pdo->prepare(
+        'INSERT INTO verification_documents (organization_id, document_type, status, submitted_at)
+         VALUES (:oid, :type, :status, NOW())'
+    );
+    $stmt->execute([
+        ':oid'    => $orgId,
+        ':type'   => 'registration',
+        ':status' => 'pending',
+    ]);
 
-        <p style="margin-top:1rem;">
-            Already have an account? <a href="login.php">Login</a><br />
-            Register as a <a href="register_user.php">Student</a>
-        </p>
-    </div>
-</main>
-</body>
-</html>
+    json_response([
+        'success' => true,
+        'message' => 'Registration submitted. Your organization is pending admin approval. You will be able to log in once verified.',
+    ]);
+
+} catch (RuntimeException $e) {
+    json_response(['success' => false, 'message' => $e->getMessage()], 400);
+}

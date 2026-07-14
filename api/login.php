@@ -2,177 +2,130 @@
 
 declare(strict_types=1);
 
+/**
+ * api/login.php — Firebase-based login endpoint for Lawable.
+ *
+ * Flow:
+ *   1. Browser JS signs in via Firebase Auth (signInWithEmailAndPassword).
+ *   2. JS sends { idToken, role } as a JSON body to this endpoint.
+ *   3. PHP verifies the ID token, looks up the user in MySQL by firebase_uid
+ *      (falling back to email for accounts not yet migrated), checks status,
+ *      and writes the same $_SESSION['user'] structure as before.
+ *   4. Returns { success, message, redirect } as JSON.
+ *
+ * Accepts: JSON POST  { idToken, role }
+ * Returns: JSON       { success, message, redirect? }
+ */
+
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/firebase_auth.php';
+
 start_secure_session();
 
-$errors = [];
-$success = '';
+// ── Only accept POST ──────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    json_response(['success' => false, 'message' => 'Method not allowed.'], 405);
+}
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    try {
-        $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+// ── Read JSON body ────────────────────────────────────────────────────────
+$body    = (string) file_get_contents('php://input');
+$payload = json_decode($body, true);
 
-        if (!$isAjax) {
-            verify_csrf_token($_POST['csrf_token'] ?? '');
-        }
+if (!is_array($payload)) {
+    json_response(['success' => false, 'message' => 'Invalid request format.'], 400);
+}
 
-        $identifier = trim((string) ($_POST['username_or_email'] ?? ''));
-        $password = (string) ($_POST['password'] ?? '');
-        $role = (string) ($_POST['role'] ?? 'user');
+try {
+    $idToken = trim((string) ($payload['idToken'] ?? ''));
+    $role    = trim((string) ($payload['role']    ?? 'user'));
 
-        if ($identifier === '' || $password === '') {
-            throw new RuntimeException('Please enter both your username/email and password.');
-        }
-
-        if (strlen($identifier) < 3) {
-            throw new RuntimeException('Please enter a valid username or email address.');
-        }
-
-        if (str_contains($identifier, '@') && !is_valid_email($identifier)) {
-            throw new RuntimeException('Please enter a valid username or email address.');
-        }
-
-        $turnstileToken = trim((string) ($_POST['cf-turnstile-response'] ?? ''));
-        if (!verify_turnstile_token($turnstileToken)) {
-            throw new RuntimeException('Please complete the CAPTCHA challenge.');
-        }
-
-        $pdo = get_pdo();
-
-        $table = match ($role) {
-            'user' => 'students',
-            'organization' => 'organizations',
-            'admin' => 'admins',
-            default => throw new RuntimeException('Invalid account type selected.'),
-        };
-
-        $stmt = match ($role) {
-            'organization' => $pdo->prepare("SELECT id, organization_name, contact_person AS name, username, email, password_hash, phone, status FROM {$table} WHERE (email = :email OR username = :username) LIMIT 1"),
-            'admin' => $pdo->prepare("SELECT id, name AS name, username, email, password_hash, '' AS phone, status FROM {$table} WHERE (email = :email OR username = :username) LIMIT 1"),
-            default => $pdo->prepare("SELECT id, name, username, email, password_hash, phone, status FROM {$table} WHERE (email = :email OR username = :username) LIMIT 1"),
-        };
-
-        $stmt->execute([':email' => $identifier, ':username' => $identifier]);
-        $user = $stmt->fetch();
-
-        if (!$user || !password_verify($password, $user['password_hash'])) {
-            throw new RuntimeException('Invalid username/email, password, or account type.');
-        }
-
-        if (($user['status'] ?? '') !== 'active') {
-            throw new RuntimeException('This account is inactive.');
-        }
-
-        $_SESSION['user'] = [
-            'id' => (int) $user['id'],
-            'name' => $user['name'],
-            'email' => $user['email'],
-            'role' => $role,
-            'phone' => $user['phone'] ?? '',
-        ];
-
-        if ($role === 'organization') {
-            $_SESSION['user']['organization_name'] = $user['organization_name'] ?? '';
-        }
-
-        // Role-based redirect
-        $redirectUrl = match ($role) {
-            'admin' => 'pages/admin/dashboard.php',
-            'organization' => 'pages/dashboard.php',
-            default => 'pages/dashboard.php',
-        };
-
-        if ($isAjax) {
-            json_response([
-                'success' => true,
-                'message' => 'Login successful.',
-                'redirect' => '/lawable/' . $redirectUrl,
-            ]);
-        }
-
-        $success = 'Login successful.';
-        redirect($redirectUrl);
-    } catch (RuntimeException $exception) {
-        $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
-        if ($isAjax) {
-            json_response(['success' => false, 'message' => $exception->getMessage()], 400);
-        }
-        $errors[] = $exception->getMessage();
+    if ($idToken === '') {
+        throw new RuntimeException('Firebase ID token is missing.');
     }
-}
 
-$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
-if ($isAjax) {
-        if ($success) {
-            json_response(['success' => true, 'message' => $success, 'redirect' => '/lawable/pages/dashboard.php']);
+    // ── Validate role ─────────────────────────────────────────────────────
+    $table = match ($role) {
+        'user'         => 'students',
+        'organization' => 'organizations',
+        'admin'        => 'admins',
+        default        => throw new RuntimeException('Invalid account type selected.'),
+    };
+
+    // ── Verify the Firebase ID token ──────────────────────────────────────
+    $firebaseUser = verify_firebase_token($idToken);
+    $uid          = $firebaseUser['uid'];
+    $email        = $firebaseUser['email'];
+
+    // ── Look up user in MySQL ─────────────────────────────────────────────
+    // Try firebase_uid first (new accounts), fall back to email (legacy rows)
+    $pdo = get_pdo();
+
+    $stmt = match ($role) {
+        'organization' => $pdo->prepare(
+            "SELECT id, organization_name, contact_person AS name, username, email, phone, status, firebase_uid
+             FROM {$table}
+             WHERE firebase_uid = :uid OR email = :email
+             LIMIT 1"
+        ),
+        'admin' => $pdo->prepare(
+            "SELECT id, name, username, email, '' AS phone, status, firebase_uid
+             FROM {$table}
+             WHERE firebase_uid = :uid OR email = :email
+             LIMIT 1"
+        ),
+        default => $pdo->prepare(
+            "SELECT id, name, username, email, phone, status, firebase_uid
+             FROM {$table}
+             WHERE firebase_uid = :uid OR email = :email
+             LIMIT 1"
+        ),
+    };
+
+    $stmt->execute([':uid' => $uid, ':email' => $email]);
+    $user = $stmt->fetch();
+
+    if (!$user) {
+        throw new RuntimeException('No account found for this email under the selected account type. Please check your role or register first.');
+    }
+
+    if (($user['status'] ?? '') !== 'active') {
+        if ($role === 'organization') {
+            throw new RuntimeException('Your organization account is pending admin approval. You will be notified once verified.');
         }
-    json_response(['success' => false, 'message' => $errors[0] ?? 'Login failed.'], 400);
+        throw new RuntimeException('This account is inactive. Please contact support.');
+    }
+
+    // ── Backfill firebase_uid if this is a legacy account ────────────────
+    if (empty($user['firebase_uid'])) {
+        $pdo->prepare("UPDATE {$table} SET firebase_uid = :uid WHERE id = :id")
+            ->execute([':uid' => $uid, ':id' => $user['id']]);
+    }
+
+    // ── Write session (identical structure to the old system) ─────────────
+    $_SESSION['user'] = [
+        'id'    => (int) $user['id'],
+        'name'  => $user['name'],
+        'email' => $user['email'],
+        'role'  => $role,
+        'phone' => $user['phone'] ?? '',
+    ];
+
+    if ($role === 'organization') {
+        $_SESSION['user']['organization_name'] = $user['organization_name'] ?? '';
+    }
+
+    // ── Role-based redirect ───────────────────────────────────────────────
+    $redirect = match ($role) {
+        'admin' => '/lawable/pages/admin/dashboard.php',
+        default => '/lawable/pages/dashboard.php',
+    };
+
+    json_response([
+        'success'  => true,
+        'message'  => 'Login successful.',
+        'redirect' => $redirect,
+    ]);
+
+} catch (RuntimeException $e) {
+    json_response(['success' => false, 'message' => $e->getMessage()], 400);
 }
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login — Lawable</title>
-    <link rel="stylesheet" href="../../assets/css/lawable.css" />
-    <style>
-        body { font-family: Inter, sans-serif; background: #07111f; color: #f7f7f2; margin: 0; }
-        main { min-height: 100vh; display: grid; place-items: center; padding: 2rem; }
-        .card { width: min(100%, 500px); background: rgba(255,255,255,0.08); padding: 2rem; border-radius: 24px; backdrop-filter: blur(16px); }
-        .field { display:flex; flex-direction:column; gap:0.35rem; margin-bottom: 1rem; }
-        label { font-weight:600; }
-        input, select { padding:0.8rem 0.95rem; border-radius:12px; border:1px solid rgba(255,255,255,0.16); background:#10233f; color:#fff; }
-        button { background:#f2c94c; color:#07111f; border:0; padding:0.9rem 1rem; border-radius:999px; font-weight:700; cursor:pointer; }
-        .alert { padding:0.8rem 1rem; margin-bottom:1rem; border-radius:12px; }
-        .alert-error { background:#7f1d1d; }
-        .alert-success { background:#14532d; }
-        a { color:#f2c94c; }
-    </style>
-</head>
-<body>
-<main>
-    <div class="card">
-        <h1>Welcome back</h1>
-        <p>Log in to access your Lawable dashboard.</p>
-
-        <?php if ($errors): foreach ($errors as $error): ?>
-            <div class="alert alert-error"><?= e($error) ?></div>
-        <?php endforeach; endif; ?>
-        <?php if ($success): ?>
-            <div class="alert alert-success"><?= e($success) ?></div>
-        <?php endif; ?>
-
-        <form method="post" action="login.php">
-            <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>" />
-
-            <div class="field">
-                <label for="role">Account type</label>
-                <select id="role" name="role" required>
-                    <option value="user">Student</option>
-                    <option value="organization">Organization</option>
-                    <option value="admin">Admin</option>
-                </select>
-            </div>
-
-            <div class="field">
-                <label for="username_or_email">Username or email</label>
-                <input id="username_or_email" name="username_or_email" type="text" required placeholder="Enter your username or email, e.g. lawuser01 or you@example.com" />
-            </div>
-
-            <div class="field">
-                <label for="password">Password</label>
-                <input id="password" name="password" type="password" required placeholder="Enter your password" />
-            </div>
-
-            <button type="submit">Login</button>
-        </form>
-
-        <p style="margin-top:1rem;">
-            New student? <a href="register_user.php">Create student account</a><br />
-            New organization? <a href="register_organization.php">Create organization account</a>
-        </p>
-    </div>
-</main>
-</body>
-</html>
