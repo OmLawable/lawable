@@ -39,6 +39,29 @@ if (!$is_org) {
     }
 }
 
+$org_courses_count = 0;
+$org_total_students = 0;
+$org_recent_courses = [];
+
+if ($is_org) {
+    $org_courses = $db->query('courses', [
+        ['organizationId', 'EQUAL', $student_id]
+    ], 100);
+
+    if (!empty($org_courses)) {
+        $org_courses_count = count($org_courses);
+        foreach ($org_courses as $c) {
+            $org_total_students += (int) ($c['enrollment_count'] ?? 0);
+        }
+        
+        usort($org_courses, function($a, $b) {
+            return strcmp($b['createdAt'] ?? '', $a['createdAt'] ?? '');
+        });
+        
+        $org_recent_courses = array_slice($org_courses, 0, 5);
+    }
+}
+
 // ─ 2. Continue learning (last accessed in-progress course) ─
 $last_course = null;
 if (!$is_org) {
@@ -65,6 +88,8 @@ if (!$is_org) {
                 'progress_percentage' => $lastProgress['progressPercentage'] ?? 0.0,
                 'completed_lessons'   => $lastProgress['completedLessons'] ?? 0,
                 'total_lessons'       => $lastProgress['totalLessons'] ?? 0,
+                'last_accessed_at'    => $lastProgress['lastAccessedAt'] ?? '',
+                'category'            => $courseDoc['category'] ?? '',
             ];
         }
     }
@@ -92,6 +117,7 @@ if (!$is_org) {
             'title'               => $courseDoc['title'] ?? '',
             'description'         => $courseDoc['description'] ?? '',
             'price'               => (float) ($courseDoc['price'] ?? 0.0),
+            'category'            => $courseDoc['category'] ?? '',
             'progress_percentage' => (float) ($progressDoc['progressPercentage'] ?? 0.0),
             'completed_lessons'   => (int) ($progressDoc['completedLessons'] ?? 0),
             'total_lessons'       => (int) ($progressDoc['totalLessons'] ?? 0),
@@ -165,6 +191,7 @@ if (!$is_org) {
             'title'       => $s['title'] ?? '',
             'description' => $s['description'] ?? '',
             'price'       => (float) ($s['price'] ?? 0.0),
+            'category'    => $s['category'] ?? '',
         ];
     }
 }
@@ -985,10 +1012,131 @@ if (!$is_org) {
   <div class="dash-content">
 
 <?php if ($is_org): /* ─── ORGANIZATION VIEW ─── */ ?>
-    <div class="org-welcome">
-      <h2>🏛 Organization Dashboard</h2>
-      <p>Welcome, <?= e($user['organization_name'] ?? $user['name']) ?>. Organization management features are coming soon.</p>
-      <a href="organization/edit-profile.php" class="btn-primary">Manage Organization</a>
+    <div class="dash-header" style="margin-bottom: 2rem;">
+      <div class="dash-header-left">
+        <h1>Welcome back, <?= e($user['organization_name'] ?? $user['name']) ?> 🏛</h1>
+        <p style="color:var(--ink-soft);font-size:0.95rem;margin-top:0.3rem;">Here is your organization's course catalog overview.</p>
+      </div>
+    </div>
+
+    <!-- Quick Stats Row -->
+    <div class="stat-row" style="margin-bottom: 2rem;">
+      <div class="stat-card">
+        <div class="stat-card-header">
+          <div class="stat-card-icon enrolled">📖</div>
+        </div>
+        <div class="stat-card-label">Courses Created</div>
+        <div class="stat-card-value"><?= number_format($org_courses_count) ?></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-header">
+          <div class="stat-card-icon hours">🎓</div>
+        </div>
+        <div class="stat-card-label">Total Student Enrollments</div>
+        <div class="stat-card-value"><?= number_format($org_total_students) ?></div>
+      </div>
+    </div>
+
+    <!-- Action Shortcuts -->
+    <h3 style="margin-bottom:1rem;font-size:1.1rem;color:var(--ink);">⚡ Quick Actions</h3>
+    <div class="enrolled-grid" style="margin-bottom: 2.5rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+      <div class="enrolled-card" onclick="window.location='organization/create-course.php'" style="cursor:pointer; transition: transform 0.2s; padding:1.25rem;">
+        <div class="enrolled-thumb" style="background:var(--gold-lt); font-size: 1.8rem; display:flex; align-items:center; justify-content:center;">➕</div>
+        <div class="enrolled-body" style="padding-top:0.75rem;">
+          <div class="enrolled-title" style="font-size:1rem; font-weight:600;">Create Course</div>
+          <p style="font-size:0.78rem; color:var(--ink-soft); margin-top:0.25rem;">Draft and publish new courses for students.</p>
+        </div>
+      </div>
+      <div class="enrolled-card" onclick="window.location='organization/manage-courses.php'" style="cursor:pointer; transition: transform 0.2s; padding:1.25rem;">
+        <div class="enrolled-thumb" style="background:#E0F2FE; font-size: 1.8rem; display:flex; align-items:center; justify-content:center;">⚙️</div>
+        <div class="enrolled-body" style="padding-top:0.75rem;">
+          <div class="enrolled-title" style="font-size:1rem; font-weight:600;">Manage Courses</div>
+          <p style="font-size:0.78rem; color:var(--ink-soft); margin-top:0.25rem;">View status, enrollments, and edit your courses.</p>
+        </div>
+      </div>
+      <div class="enrolled-card" onclick="window.location='organization/edit-profile.php'" style="cursor:pointer; transition: transform 0.2s; padding:1.25rem;">
+        <div class="enrolled-thumb" style="background:#DCFCE7; font-size: 1.8rem; display:flex; align-items:center; justify-content:center;">🏢</div>
+        <div class="enrolled-body" style="padding-top:0.75rem;">
+          <div class="enrolled-title" style="font-size:1rem; font-weight:600;">Edit Profile</div>
+          <p style="font-size:0.78rem; color:var(--ink-soft); margin-top:0.25rem;">Update contact info and official brand details.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Courses Table -->
+    <div class="section-row">
+      <h2>📁 Recently Created Courses</h2>
+      <?php if ($org_courses_count > 0): ?>
+        <a href="organization/manage-courses.php">View all (<?= $org_courses_count ?>) →</a>
+      <?php endif; ?>
+    </div>
+
+    <div class="manage-table-card" style="background:var(--white); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); overflow:hidden;">
+      <div style="overflow-x:auto;">
+        <?php if (empty($org_recent_courses)): ?>
+          <div style="text-align:center; padding:3rem; color:var(--ink-soft);">
+            <div style="font-size:2.5rem; margin-bottom:0.75rem;">📖</div>
+            <h3>No courses created yet</h3>
+            <p style="font-size:0.85rem; margin-top:0.3rem; margin-bottom:1.25rem;">Create a course to begin.</p>
+            <a href="organization/create-course.php" class="btn-primary" style="text-decoration:none; display:inline-flex;">+ Create Course</a>
+          </div>
+        <?php else: ?>
+          <table style="width:100%; border-collapse:collapse; font-size:0.88rem; text-align:left;">
+            <thead>
+              <tr style="background:var(--page-bg); border-bottom:1px solid var(--border);">
+                <th style="padding:0.85rem 1.25rem; font-size:0.72rem; color:var(--ink-soft); font-weight:600; text-transform:uppercase;">Course</th>
+                <th style="padding:0.85rem 1.25rem; font-size:0.72rem; color:var(--ink-soft); font-weight:600; text-transform:uppercase;">Category</th>
+                <th style="padding:0.85rem 1.25rem; font-size:0.72rem; color:var(--ink-soft); font-weight:600; text-transform:uppercase;">Enrollments</th>
+                <th style="padding:0.85rem 1.25rem; font-size:0.72rem; color:var(--ink-soft); font-weight:600; text-transform:uppercase;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($org_recent_courses as $c):
+                // Determine course image
+                $courseImage = '';
+                $titleLower = strtolower($c['title'] ?? '');
+                $catLower = strtolower($c['category'] ?? '');
+                if (!empty($c['imageUrl'])) {
+                    $courseImage = $c['imageUrl'];
+                } elseif (str_contains($titleLower, 'python') || str_contains($titleLower, 'data structure') || str_contains($titleLower, 'algorithm')) {
+                    $courseImage = '../assets/images/dsa_python.png';
+                } elseif (str_contains($titleLower, 'web dev') || str_contains($titleLower, 'bootcamp') || str_contains($titleLower, 'javascript') || str_contains($titleLower, 'html') || str_contains($titleLower, 'css')) {
+                    $courseImage = '../assets/images/web_dev.png';
+                } elseif (str_contains($titleLower, 'database') || str_contains($titleLower, 'sql')) {
+                    $courseImage = '../assets/images/database_sql.png';
+                } elseif (str_contains($catLower, 'law') || str_contains($catLower, 'justice')) {
+                    $courseImage = '../assets/images/constitutional_law.png';
+                } elseif (str_contains($catLower, 'technology') || str_contains($catLower, 'computer science')) {
+                    $courseImage = '../assets/images/web_dev.png';
+                } elseif (str_contains($catLower, 'business') || str_contains($catLower, 'compliance')) {
+                    $courseImage = '../assets/images/business_compliance.png';
+                } elseif (str_contains($catLower, 'personal') || str_contains($catLower, 'development') || str_contains($catLower, 'communication')) {
+                    $courseImage = '../assets/images/personal_development.png';
+                } else {
+                    $courseImage = '../assets/images/constitutional_law.png';
+                }
+
+                $statusText = $c['status'] ?? 'draft';
+                $statusClass = $statusText === 'published' ? 'background:#DCFCE7;color:#15803D;' : 'background:#F3F4F6;color:#4B5563;';
+              ?>
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:0.85rem 1.25rem; font-weight:600; display:flex; align-items:center; gap:0.75rem;">
+                    <div style="width:36px; height:36px; border-radius:6px; background-image:url('<?= e($courseImage) ?>'); background-size:cover; background-position:center; flex-shrink:0;"></div>
+                    <span><?= e($c['title']) ?></span>
+                  </td>
+                  <td style="padding:0.85rem 1.25rem; color:var(--ink-mid);"><?= e($c['category'] ?? '') ?></td>
+                  <td style="padding:0.85rem 1.25rem; font-weight:600;"><?= number_format((int)($c['enrollment_count'] ?? 0)) ?> students</td>
+                  <td style="padding:0.85rem 1.25rem;">
+                    <span style="display:inline-flex; align-items:center; padding:0.2rem 0.5rem; border-radius:50px; font-size:0.7rem; font-weight:600; text-transform:uppercase; <?= $statusClass ?>">
+                      <?= e($statusText) ?>
+                    </span>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        <?php endif; ?>
+      </div>
     </div>
 
 <?php else: /* ─── STUDENT VIEW ─── */ ?>
@@ -1049,16 +1197,46 @@ if (!$is_org) {
     <?php if ($last_course): ?>
     <div class="section-row">
       <h2>▶ Continue Learning</h2>
-      <a href="pages/courses.php">All courses →</a>
+      <a href="courses.php">All courses →</a>
     </div>
     <div class="continue-card">
-      <div class="continue-icon">⚖️</div>
+      <?php
+        $lastCourseImage = '';
+        $titleLower = strtolower($last_course['title'] ?? '');
+        $catLower = strtolower($last_course['category'] ?? '');
+        if (!empty($last_course['imageUrl'])) {
+            $lastCourseImage = $last_course['imageUrl'];
+        } elseif (str_contains($titleLower, 'python') || str_contains($titleLower, 'data structure') || str_contains($titleLower, 'algorithm')) {
+            $lastCourseImage = '../assets/images/dsa_python.png';
+        } elseif (str_contains($titleLower, 'web dev') || str_contains($titleLower, 'bootcamp') || str_contains($titleLower, 'javascript') || str_contains($titleLower, 'html') || str_contains($titleLower, 'css')) {
+            $lastCourseImage = '../assets/images/web_dev.png';
+        } elseif (str_contains($titleLower, 'database') || str_contains($titleLower, 'sql')) {
+            $lastCourseImage = '../assets/images/database_sql.png';
+        } elseif (str_contains($catLower, 'law') || str_contains($catLower, 'justice')) {
+            $lastCourseImage = '../assets/images/constitutional_law.png';
+        } elseif (str_contains($catLower, 'technology') || str_contains($catLower, 'computer science')) {
+            $lastCourseImage = '../assets/images/web_dev.png';
+        } elseif (str_contains($catLower, 'business') || str_contains($catLower, 'compliance')) {
+            $lastCourseImage = '../assets/images/business_compliance.png';
+        } elseif (str_contains($catLower, 'personal') || str_contains($catLower, 'development') || str_contains($catLower, 'communication')) {
+            $lastCourseImage = '../assets/images/personal_development.png';
+        } else {
+            $lastCourseImage = '../assets/images/constitutional_law.png';
+        }
+      ?>
+      <?php if (!empty($lastCourseImage)): ?>
+        <div class="continue-icon" style="background-image: url('<?= e($lastCourseImage) ?>'); background-size: cover; background-position: center; font-size: 0; color: transparent;"></div>
+      <?php else: ?>
+        <div class="continue-icon">⚖️</div>
+      <?php endif; ?>
       <div class="continue-info">
         <div class="continue-label">Pick up where you left off</div>
         <div class="continue-title"><?= e($last_course['title']) ?></div>
         <div class="continue-meta">
           <?= (int) $last_course['completed_lessons'] ?> / <?= (int) $last_course['total_lessons'] ?> lessons completed
-          · Last accessed <?= date('M j', strtotime($last_course['last_accessed_at'])) ?>
+          <?php if (!empty($last_course['last_accessed_at'])): ?>
+            · Last accessed <?= date('M j', strtotime($last_course['last_accessed_at'])) ?>
+          <?php endif; ?>
         </div>
       </div>
       <div class="continue-progress">
@@ -1067,13 +1245,13 @@ if (!$is_org) {
         </div>
         <div class="continue-progress-text"><?= round((float) $last_course['progress_percentage']) ?>% complete</div>
       </div>
-      <a href="pages/courses.php?course_id=<?= e($last_course['course_id']) ?>" class="continue-btn">Continue →</a>
+      <a href="courses.php?course_id=<?= e($last_course['course_id']) ?>" class="continue-btn">Continue →</a>
     </div>
     <?php elseif (empty($enrolled_courses)): ?>
     <div class="empty-state">
       <div class="empty-state-icon">📖</div>
       <div class="empty-state-text">You haven't started a course yet.</div>
-      <a href="pages/courses.php">Browse courses →</a>
+      <a href="courses.php">Browse courses →</a>
     </div>
     <?php endif; ?>
 
@@ -1081,12 +1259,40 @@ if (!$is_org) {
     <?php if (!empty($enrolled_courses)): ?>
     <div class="section-row">
       <h2>📚 My Courses</h2>
-      <a href="pages/courses.php">View all →</a>
+      <a href="courses.php">View all →</a>
     </div>
     <div class="enrolled-grid">
-      <?php foreach ($enrolled_courses as $ec): ?>
+      <?php foreach ($enrolled_courses as $ec):
+        // Determine course image
+        $courseImage = '';
+        $titleLower = strtolower($ec['title'] ?? '');
+        $catLower = strtolower($ec['category'] ?? '');
+        if (!empty($ec['imageUrl'])) {
+            $courseImage = $ec['imageUrl'];
+        } elseif (str_contains($titleLower, 'python') || str_contains($titleLower, 'data structure') || str_contains($titleLower, 'algorithm')) {
+            $courseImage = '../assets/images/dsa_python.png';
+        } elseif (str_contains($titleLower, 'web dev') || str_contains($titleLower, 'bootcamp') || str_contains($titleLower, 'javascript') || str_contains($titleLower, 'html') || str_contains($titleLower, 'css')) {
+            $courseImage = '../assets/images/web_dev.png';
+        } elseif (str_contains($titleLower, 'database') || str_contains($titleLower, 'sql')) {
+            $courseImage = '../assets/images/database_sql.png';
+        } elseif (str_contains($catLower, 'law') || str_contains($catLower, 'justice')) {
+            $courseImage = '../assets/images/constitutional_law.png';
+        } elseif (str_contains($catLower, 'technology') || str_contains($catLower, 'computer science')) {
+            $courseImage = '../assets/images/web_dev.png';
+        } elseif (str_contains($catLower, 'business') || str_contains($catLower, 'compliance')) {
+            $courseImage = '../assets/images/business_compliance.png';
+        } elseif (str_contains($catLower, 'personal') || str_contains($catLower, 'development') || str_contains($catLower, 'communication')) {
+            $courseImage = '../assets/images/personal_development.png';
+        } else {
+            $courseImage = '../assets/images/constitutional_law.png';
+        }
+      ?>
       <div class="enrolled-card">
-        <div class="enrolled-thumb">⚖️</div>
+        <?php if (!empty($courseImage)): ?>
+          <div class="enrolled-thumb" style="background-image: url('<?= e($courseImage) ?>'); background-size: cover; background-position: center; font-size: 0; color: transparent;"></div>
+        <?php else: ?>
+          <div class="enrolled-thumb">⚖️</div>
+        <?php endif; ?>
         <div class="enrolled-body">
           <div class="enrolled-title"><?= e($ec['title']) ?></div>
           <div class="enrolled-progress">
@@ -1103,7 +1309,7 @@ if (!$is_org) {
               <?= (float) $ec['price'] > 0 ? '₹' . number_format((float) $ec['price']) : '<span class="free-label">Free</span>' ?>
             </span>
             <?php if ((float) $ec['progress_percentage'] < 100): ?>
-            <a href="pages/courses.php?course_id=<?= e($ec['id']) ?>" class="enrolled-continue">Continue →</a>
+            <a href="courses.php?course_id=<?= e($ec['id']) ?>" class="enrolled-continue">Continue →</a>
             <?php else: ?>
             <span style="font-size:0.72rem;color:var(--green);font-weight:600;">✓ Completed</span>
             <?php endif; ?>
@@ -1189,19 +1395,47 @@ if (!$is_org) {
     <?php if (!empty($recommended)): ?>
     <div class="section-row">
       <h2>🔥 Recommended for You</h2>
-      <a href="pages/courses.php">Browse all →</a>
+      <a href="courses.php">Browse all →</a>
     </div>
     <div class="rec-track" style="margin-bottom:1.5rem;">
-      <?php foreach ($recommended as $rc): ?>
+      <?php foreach ($recommended as $rc):
+        // Determine course image
+        $courseImage = '';
+        $titleLower = strtolower($rc['title'] ?? '');
+        $catLower = strtolower($rc['category'] ?? '');
+        if (!empty($rc['imageUrl'])) {
+            $courseImage = $rc['imageUrl'];
+        } elseif (str_contains($titleLower, 'python') || str_contains($titleLower, 'data structure') || str_contains($titleLower, 'algorithm')) {
+            $courseImage = '../assets/images/dsa_python.png';
+        } elseif (str_contains($titleLower, 'web dev') || str_contains($titleLower, 'bootcamp') || str_contains($titleLower, 'javascript') || str_contains($titleLower, 'html') || str_contains($titleLower, 'css')) {
+            $courseImage = '../assets/images/web_dev.png';
+        } elseif (str_contains($titleLower, 'database') || str_contains($titleLower, 'sql')) {
+            $courseImage = '../assets/images/database_sql.png';
+        } elseif (str_contains($catLower, 'law') || str_contains($catLower, 'justice')) {
+            $courseImage = '../assets/images/constitutional_law.png';
+        } elseif (str_contains($catLower, 'technology') || str_contains($catLower, 'computer science')) {
+            $courseImage = '../assets/images/web_dev.png';
+        } elseif (str_contains($catLower, 'business') || str_contains($catLower, 'compliance')) {
+            $courseImage = '../assets/images/business_compliance.png';
+        } elseif (str_contains($catLower, 'personal') || str_contains($catLower, 'development') || str_contains($catLower, 'communication')) {
+            $courseImage = '../assets/images/personal_development.png';
+        } else {
+            $courseImage = '../assets/images/constitutional_law.png';
+        }
+      ?>
       <div class="rec-card">
-        <div class="rec-thumb">⚖️</div>
+        <?php if (!empty($courseImage)): ?>
+          <div class="rec-thumb" style="background-image: url('<?= e($courseImage) ?>'); background-size: cover; background-position: center; font-size: 0; color: transparent;"></div>
+        <?php else: ?>
+          <div class="rec-thumb">⚖️</div>
+        <?php endif; ?>
         <div class="rec-body">
           <div class="rec-title"><?= e($rc['title']) ?></div>
           <div class="rec-footer">
             <span class="rec-price">
               <?= (float) $rc['price'] > 0 ? '₹' . number_format((float) $rc['price']) : '<span class="free-label">Free</span>' ?>
             </span>
-            <a href="pages/courses.php?course_id=<?= e($rc['id']) ?>" class="rec-enroll">Enroll →</a>
+            <a href="courses.php?course_id=<?= e($rc['id']) ?>" class="rec-enroll">Enroll →</a>
           </div>
         </div>
       </div>

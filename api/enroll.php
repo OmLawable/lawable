@@ -46,6 +46,10 @@ $enrollmentDoc = [
 ];
 $db->set('enrollments', $enrollmentDoc, $enrollmentId);
 
+// Update enrollment count on course document
+$current_count = (int) ($course['enrollment_count'] ?? 0);
+$db->update('courses', $course_id, ['enrollment_count' => $current_count + 1]);
+
 // Get course lesson count for progress tracking (embedded lessons array)
 $lesson_count = count($course['lessons'] ?? []);
 

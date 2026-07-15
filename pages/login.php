@@ -508,7 +508,7 @@ $turnstileSiteKey = get_turnstile_site_key();
         <button class="btn-primary" type="submit" id="signin-btn">Sign in</button>
 
         <p class="switch-text">New here? <a href="#" data-switch="signup">Create an account</a></p>
-        <a class="back-home" href="../index.html">← Back to home</a>
+        <a class="back-home" href="courses.php">← Back to home</a>
       </form>
 
       <!-- CREATE ACCOUNT -->

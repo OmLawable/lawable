@@ -643,6 +643,30 @@ foreach ($all_courses as $course) {
                   ? e($c['organization_name'])
                   : '<span style="color:var(--ink-soft);font-style:italic;">Platform</span>';
                 $date_created = date('M j, Y', strtotime($c['created_at']));
+
+                // Determine course image
+                $courseImage = '';
+                $titleLower = strtolower($c['title'] ?? '');
+                $catLower = strtolower($c['category'] ?? '');
+                if (!empty($c['imageUrl'])) {
+                    $courseImage = $c['imageUrl'];
+                } elseif (str_contains($titleLower, 'python') || str_contains($titleLower, 'data structure') || str_contains($titleLower, 'algorithm')) {
+                    $courseImage = '../../assets/images/dsa_python.png';
+                } elseif (str_contains($titleLower, 'web dev') || str_contains($titleLower, 'bootcamp') || str_contains($titleLower, 'javascript') || str_contains($titleLower, 'html') || str_contains($titleLower, 'css')) {
+                    $courseImage = '../../assets/images/web_dev.png';
+                } elseif (str_contains($titleLower, 'database') || str_contains($titleLower, 'sql')) {
+                    $courseImage = '../../assets/images/database_sql.png';
+                } elseif (str_contains($catLower, 'law') || str_contains($catLower, 'justice')) {
+                    $courseImage = '../../assets/images/constitutional_law.png';
+                } elseif (str_contains($catLower, 'technology') || str_contains($catLower, 'computer science')) {
+                    $courseImage = '../../assets/images/web_dev.png';
+                } elseif (str_contains($catLower, 'business') || str_contains($catLower, 'compliance')) {
+                    $courseImage = '../../assets/images/business_compliance.png';
+                } elseif (str_contains($catLower, 'personal') || str_contains($catLower, 'development') || str_contains($catLower, 'communication')) {
+                    $courseImage = '../../assets/images/personal_development.png';
+                } else {
+                    $courseImage = '../../assets/images/constitutional_law.png';
+                }
               ?>
               <tr class="course-row"
                   data-status="<?= e($c['status']) ?>"
@@ -650,7 +674,11 @@ foreach ($all_courses as $course) {
                   data-search="<?= e(strtolower($c['title'] . ' ' . ($c['organization_name'] ?? ''))) ?>">
                 <td>
                   <div class="course-entity">
-                    <div class="course-thumb-icon">⚖</div>
+                    <?php if (!empty($courseImage)): ?>
+                      <div class="course-thumb-icon" style="background-image: url('<?= e($courseImage) ?>'); background-size: cover; background-position: center; font-size: 0; color: transparent;"></div>
+                    <?php else: ?>
+                      <div class="course-thumb-icon">⚖</div>
+                    <?php endif; ?>
                     <div class="course-info">
                       <span class="course-title"><?= e($c['title']) ?></span>
                       <?php if (!empty($c['description'])): ?>
