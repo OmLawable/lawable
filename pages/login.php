@@ -491,6 +491,9 @@ $turnstileSiteKey = get_turnstile_site_key();
             <input id="si-password" type="password" placeholder="Enter your password" required />
             <button type="button" class="toggle-visibility" data-for="si-password">Show</button>
           </div>
+          <div class="row-between" style="justify-content: flex-end; margin-top: 0.15rem;">
+            <a href="forgot-password.php" class="forgot-link">Forgot password?</a>
+          </div>
         </div>
 
         <div class="field">
