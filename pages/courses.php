@@ -457,7 +457,31 @@ function diffBg(string $diff): string {
         $diff = $course['difficulty'] ?? 'all-levels';
         $enrolled = $isEnrolled($course['__id']);
 
-        // Pick thumb class by category
+        // Determine course image
+        $courseImage = '';
+        $titleLower = strtolower($course['title'] ?? '');
+        $catLower = strtolower($cat);
+        if (!empty($course['imageUrl'])) {
+            $courseImage = $course['imageUrl'];
+        } elseif (str_contains($titleLower, 'python') || str_contains($titleLower, 'data structure') || str_contains($titleLower, 'algorithm')) {
+            $courseImage = '../assets/images/dsa_python.png';
+        } elseif (str_contains($titleLower, 'web dev') || str_contains($titleLower, 'bootcamp') || str_contains($titleLower, 'javascript') || str_contains($titleLower, 'html') || str_contains($titleLower, 'css')) {
+            $courseImage = '../assets/images/web_dev.png';
+        } elseif (str_contains($titleLower, 'database') || str_contains($titleLower, 'sql')) {
+            $courseImage = '../assets/images/database_sql.png';
+        } elseif (str_contains($catLower, 'law') || str_contains($catLower, 'justice')) {
+            $courseImage = '../assets/images/constitutional_law.png';
+        } elseif (str_contains($catLower, 'technology') || str_contains($catLower, 'computer science')) {
+            $courseImage = '../assets/images/web_dev.png';
+        } elseif (str_contains($catLower, 'business') || str_contains($catLower, 'compliance')) {
+            $courseImage = '../assets/images/business_compliance.png';
+        } elseif (str_contains($catLower, 'personal') || str_contains($catLower, 'development') || str_contains($catLower, 'communication')) {
+            $courseImage = '../assets/images/personal_development.png';
+        } else {
+            $courseImage = '../assets/images/constitutional_law.png';
+        }
+
+        // Pick thumb class by category if no image is present
         $thumbClass = 'course-thumb-default';
         $thumbIcon = '📘';
         if (str_contains($cat, 'Technology')) { $thumbClass = 'course-thumb-tech'; $thumbIcon = '💻'; }
@@ -466,8 +490,12 @@ function diffBg(string $diff): string {
         elseif (str_contains($cat, 'Personal')) { $thumbClass = 'course-thumb-personal'; $thumbIcon = '🌟'; }
       ?>
       <div class="course-card fade-up" data-category="<?= e($cat) ?>" data-title="<?= e(strtolower($course['title'])) ?>">
-        <div class="course-thumb <?= $thumbClass ?>">
-          <span class="course-thumb-icon"><?= $thumbIcon ?></span>
+        <?php if (!empty($courseImage)): ?>
+          <div class="course-thumb" style="background-image: url('<?= e($courseImage) ?>'); background-size: cover; background-position: center;">
+        <?php else: ?>
+          <div class="course-thumb <?= $thumbClass ?>">
+            <span class="course-thumb-icon"><?= $thumbIcon ?></span>
+        <?php endif; ?>
           <?php if ($price == 0): ?><span class="course-badge free">Free</span><?php endif; ?>
           <?php if ($rating >= 4.8): ?><span class="course-badge popular" style="right:10px;left:auto;">★ Popular</span><?php endif; ?>
         </div>
