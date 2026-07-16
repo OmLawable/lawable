@@ -30,7 +30,7 @@ if (!$is_org) {
     if ($sp) {
         $nudge_dismissed = (bool) ($sp['completionNudgeDismissed'] ?? false);
         // Count filled optional fields
-        $optional = ['city','bio','dateOfBirth','institution','course','yearSemester','areasOfInterest','linkedinUrl','skills','resumeFile'];
+        $optional = ['gender','bio','dateOfBirth','institution','course','yearSemester','areasOfInterest','linkedinUrl','skills','resumeFile'];
         $filled = 0;
         foreach ($optional as $f) {
             if (!empty($sp[$f])) $filled++;

@@ -18,22 +18,37 @@ function fetch_student_profile(FirestoreClient $db, string $studentUid): array
     }
 
     // Adapt fields to match the old array keys used in the HTML templates
+    $rawAreas = $profile['areasOfInterest'] ?? [];
+    if (is_string($rawAreas)) {
+        $areas = array_filter(array_map('trim', explode(',', $rawAreas)));
+    } else {
+        $areas = (array)$rawAreas;
+    }
+
+    $rawSkills = $profile['skills'] ?? [];
+    if (is_string($rawSkills)) {
+        $skills = array_filter(array_map('trim', explode(',', $rawSkills)));
+    } else {
+        $skills = (array)$rawSkills;
+    }
+
     return [
         'id'                => $profile['__id'] ?? $studentUid,
         'name'              => $profile['name'] ?? '',
         'username'          => $profile['username'] ?? '',
         'email'             => $profile['email'] ?? '',
         'phone'             => $profile['phone'] ?? '',
-        'city'              => $profile['city'] ?? '',
+        'gender'            => $profile['gender'] ?? '',
         'bio'               => $profile['bio'] ?? '',
         'date_of_birth'     => $profile['dateOfBirth'] ?? '',
         'institution'       => $profile['institution'] ?? '',
         'course'            => $profile['course'] ?? '',
         'year_semester'     => $profile['yearSemester'] ?? '',
-        'areas_of_interest' => $profile['areasOfInterest'] ?? '',
+        'areas_of_interest' => $areas,
         'resume_file'       => $profile['resumeFile'] ?? '',
-        'linkedin_url'      => $profile['linkedinUrl'] ?? '',
-        'skills'            => $profile['skills'] ?? '',
+        'department'        => $profile['department'] ?? '',
+        'skills'            => $skills,
+        'avatar'            => $profile['avatar'] ?? 'avatar1.png',
     ];
 }
 
@@ -46,16 +61,17 @@ try {
         'username'          => $user['username'] ?? '',
         'email'             => $user['email'] ?? '',
         'phone'             => $user['phone'] ?? '',
-        'city'              => '',
+        'gender'            => '',
         'bio'               => '',
         'date_of_birth'     => '',
         'institution'       => '',
         'course'            => '',
         'year_semester'     => '',
-        'areas_of_interest' => '',
+        'areas_of_interest' => [],
         'resume_file'       => '',
-        'linkedin_url'      => '',
-        'skills'            => '',
+        'department'        => '',
+        'skills'            => [],
+        'avatar'            => 'avatar1.png',
     ];
     $errors[] = 'Profile not found: ' . $exception->getMessage();
 }
@@ -65,17 +81,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         verify_csrf_token($_POST['csrf_token'] ?? '');
 
         $name            = trim((string) ($_POST['name'] ?? ''));
+        $username        = trim((string) ($_POST['username'] ?? ''));
+        $email           = trim((string) ($_POST['email'] ?? ''));
         $phone           = trim((string) ($_POST['phone'] ?? ''));
-        $city            = trim((string) ($_POST['city'] ?? ''));
+        $gender          = trim((string) ($_POST['gender'] ?? ''));
+        if ($gender !== '' && !in_array($gender, ['Female', 'Male', 'Other', 'Prefer not to say'], true)) {
+            throw new RuntimeException('Invalid gender value selected.');
+        }
         $bio             = trim((string) ($_POST['bio'] ?? ''));
         $dateOfBirth     = trim((string) ($_POST['date_of_birth'] ?? ''));
         $institution     = trim((string) ($_POST['institution'] ?? ''));
         $course          = trim((string) ($_POST['course'] ?? ''));
         $yearSemester    = trim((string) ($_POST['year_semester'] ?? ''));
-        $areasOfInterest = trim((string) ($_POST['areas_of_interest'] ?? ''));
-        $linkedinUrl     = trim((string) ($_POST['linkedin_url'] ?? ''));
-        $skills          = trim((string) ($_POST['skills'] ?? ''));
+        $rawAreas        = $_POST['areas_of_interest'] ?? [];
+        $areasOfInterest = is_array($rawAreas) ? array_slice(array_filter(array_map('trim', $rawAreas)), 0, 5) : [];
         
+        $department      = trim((string) ($_POST['department'] ?? ''));
+        
+        $rawSkills       = $_POST['skills'] ?? [];
+        $skills          = is_array($rawSkills) ? array_slice(array_filter(array_map('trim', $rawSkills)), 0, 5) : [];
+        $avatar          = trim((string) ($_POST['avatar'] ?? 'avatar1.png'));
+        
+        if (!preg_match('/^avatar[1-9][0-9]*\.png$/', $avatar)) {
+            $avatar = 'avatar1.png';
+        }
+        
+        // Validate username format
+        if ($username === '' || strlen($username) < 3 || strlen($username) > 30 || !preg_match('/^[a-zA-Z0-9._-]+$/', $username)) {
+            throw new RuntimeException('Username must be 3-30 chars, alphanumeric or spec characters (._-).');
+        }
+
+        // Validate email format
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('Please enter a valid email address.');
+        }
+
+        // Validate username uniqueness
+        if ($username !== $profile['username']) {
+            $matches = $db->query('students', [['username', 'EQUAL', $username]], 5);
+            foreach ($matches as $m) {
+                if ($m['__id'] !== (string) $user['id']) {
+                    throw new RuntimeException('This username is already taken.');
+                }
+            }
+            $orgMatches = $db->query('organizations', [['username', 'EQUAL', $username]], 1);
+            if (!empty($orgMatches)) {
+                throw new RuntimeException('This username is already taken.');
+            }
+        }
+
+        // Validate email uniqueness
+        if ($email !== $profile['email']) {
+            $matches = $db->query('students', [['email', 'EQUAL', $email]], 5);
+            foreach ($matches as $m) {
+                if ($m['__id'] !== (string) $user['id']) {
+                    throw new RuntimeException('This email is already registered.');
+                }
+            }
+            $orgMatches = $db->query('organizations', [['email', 'EQUAL', $email]], 1);
+            if (!empty($orgMatches)) {
+                throw new RuntimeException('This email is already registered.');
+            }
+        }
+
         $resumeFile = $profile['resume_file'] ?? '';
         
         // Handle resume file upload
@@ -127,9 +195,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new RuntimeException('Please enter a valid phone number.');
         }
 
-        if ($city !== '' && strlen($city) > 120) {
-            throw new RuntimeException('City must be 120 characters or fewer.');
-        }
 
         if (strlen($bio) > 1000) {
             throw new RuntimeException('Bio must be 1000 characters or fewer.');
@@ -143,41 +208,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'Institution/College name' => $institution,
             'Course/Degree' => $course,
             'Year/Semester' => $yearSemester,
-            'Areas of Interest' => $areasOfInterest,
-            'LinkedIn URL' => $linkedinUrl,
         ] as $label => $value) {
-            if (strlen($value) > 255) {
+            if (strlen((string) $value) > 255) {
                 throw new RuntimeException($label . ' must be 255 characters or fewer.');
             }
         }
 
-        if (strlen($skills) > 1000) {
-            throw new RuntimeException('Skills must be 1000 characters or fewer.');
+        if (count($areasOfInterest) > 5) {
+            throw new RuntimeException('You can select a maximum of 5 Areas of Interest.');
         }
 
-        if ($linkedinUrl !== '' && !filter_var($linkedinUrl, FILTER_VALIDATE_URL)) {
-            throw new RuntimeException('Please enter a valid LinkedIn URL.');
+        if (count($skills) > 5) {
+            throw new RuntimeException('You can select a maximum of 5 Skills.');
+        }
+
+        if (strlen($department) > 150) {
+            throw new RuntimeException('Department/Branch must be 150 characters or fewer.');
+        }
+
+        // Update Firebase Auth email if it changed
+        if ($email !== $profile['email']) {
+            require_once __DIR__ . '/../../includes/firebase_auth.php';
+            $auth = get_firebase_factory()->createAuth();
+            $auth->updateUser((string) $user['id'], [
+                'email' => $email
+            ]);
         }
 
         // Update Firestore student document (combines student info and profile fields)
         $db->update('students', (string) $user['id'], [
             'name'            => $name,
+            'username'        => $username,
+            'email'           => $email,
             'phone'           => $phone,
-            'city'            => $city,
+            'gender'          => $gender,
             'bio'             => $bio,
             'dateOfBirth'     => $dateOfBirth,
             'institution'     => $institution,
             'course'          => $course,
             'yearSemester'    => $yearSemester,
             'areasOfInterest' => $areasOfInterest,
-            'linkedinUrl'     => $linkedinUrl,
+            'department'      => $department,
             'skills'          => $skills,
             'resumeFile'      => $resumeFile,
+            'avatar'          => $avatar,
             'updatedAt'       => FirestoreClient::now()
         ]);
 
         $_SESSION['user']['name'] = $name;
         $_SESSION['user']['phone'] = $phone;
+        $_SESSION['user']['avatar'] = $avatar;
+        $_SESSION['user']['username'] = $username;
+        $_SESSION['user']['email'] = $email;
+        $_SESSION['user']['gender'] = $gender;
 
         $success = 'Profile saved successfully.';
         $profile = fetch_student_profile($db, (string) $user['id']);
@@ -185,7 +268,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = $exception->getMessage();
     }
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -195,37 +277,142 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <title>Edit Profile - Lawable</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../../assets/css/lawable.css?v=2" />
+  <!-- Flatpickr Datepicker -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <style>
-    body.profile-page { background: #FCF8F1 !important; }
-    .profile-shell { width: min(980px, 100%) !important; margin: 0 auto !important; }
-    .profile-form-wrap { display: flex !important; justify-content: center !important; width: 100% !important; }
-    .profile-form { width: 100% !important; }
-    .profile-card { width: 100%; max-width: 920px; margin: 0 auto; background: white; border: 1px solid #E5E0D8; border-radius: 28px; box-shadow: 0 4px 24px rgba(13,17,23,0.08); }
-    .profile-card-header { display: flex; align-items: center; gap: 1rem; padding: 1.75rem 2rem 1.5rem; border-bottom: 1px solid rgba(229,224,216,0.9); }
-    .profile-card-icon { width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; border-radius: 16px; background: rgba(201,147,58,0.14); color: #A8732A; }
-    .profile-card-body { display: grid; gap: 1.75rem; padding: 1.75rem 2rem 2rem; }
-    .profile-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
-    .profile-field { display: grid; gap: 0.5rem; }
-    .profile-field label { font-size: 0.95rem; font-weight: 600; color: #4B5563; }
-    .profile-field input, .profile-field textarea { width: 100%; min-height: 44px; border: 1px solid #E5E0D8; border-radius: 16px; padding: 0.95rem 1rem; background: white; color: #0D1117; font-family: 'Inter', sans-serif; font-size: 0.95rem; transition: border-color .2s, box-shadow .2s; }
-    .profile-field textarea { min-height: 140px; resize: vertical; }
-    .profile-field input:focus, .profile-field textarea:focus { outline: none; border-color: #C9933A; box-shadow: 0 0 0 3px rgba(201,147,58,0.12); }
-    .profile-field input[disabled], .profile-field input[readonly] { background: #F8F4EF; color: #6B7280; cursor: not-allowed; }
+    body.profile-page { background: #FCF8F1 !important; color: #0D1117; font-family: 'Inter', sans-serif; }
+    
+    /* ─── Breadcrumbs & Header ──────────────── */
+    .profile-breadcrumbs { font-size: 0.85rem; color: #8A857C; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+    .profile-breadcrumbs a { color: #8A857C; text-decoration: none; transition: color 0.2s; }
+    .profile-breadcrumbs a:hover { color: #A8732A; }
+    .profile-breadcrumbs span { color: #D5CFCE; }
+    
+    .profile-header-title { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; color: #0D1117; margin-bottom: 1.75rem; }
+
+    /* ─── Shell Layout ──────────────── */
+    .profile-shell { width: min(1040px, 100%) !important; margin: 2rem 0 2rem 3.5rem !important; padding: 0 1.5rem 0 0; box-sizing: border-box; }
+    .profile-layout { display: grid; grid-template-columns: 280px 1fr; gap: 2rem; align-items: start; }
+    
+    /* ─── Sidebar Cards ──────────────── */
+    .profile-sidebar { background: white; border: 1px solid #E5E0D8; border-radius: 24px; padding: 1.5rem; box-shadow: 0 4px 24px rgba(13,17,23,0.04); display: flex; flex-direction: column; gap: 0.5rem; }
+    
+    .tab-btn { display: flex; align-items: center; gap: 0.75rem; width: 100%; border: none; background: transparent; padding: 0.95rem 1.25rem; font-size: 0.95rem; font-weight: 600; text-align: left; color: #4B5563; border-radius: 9999px; cursor: pointer; transition: background 0.2s, color 0.2s; }
+    .tab-btn:hover { background: #FAF7F2; color: #A8732A; }
+    .tab-btn.active { background: #A8732A; color: white; }
+    
+    /* ─── Content Panel ──────────────── */
+    .profile-content { background: white; border: 1px solid #E5E0D8; border-radius: 24px; padding: 2.25rem; box-shadow: 0 4px 24px rgba(13,17,23,0.04); min-height: 480px; width: 700px; box-sizing: border-box; }
+    
+    .profile-panel { display: none; }
+    .profile-panel.active { display: block; }
+    
+    .panel-title { font-family: 'Playfair Display', serif; font-size: 1.45rem; font-weight: 700; color: #0D1117; margin-bottom: 1.5rem; border-bottom: 1px solid rgba(229,224,216,0.5); padding-bottom: 0.75rem; }
+
+    /* ─── Forms and Fields ──────────────── */
+    .profile-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1.5rem; row-gap: 2.25rem; }
+    .profile-field { display: grid; gap: 0.5rem; position: relative; }
     .profile-field-full { grid-column: 1 / -1; }
-    .profile-actions { display: flex; justify-content: flex-end; gap: 1rem; }
-    .btn-ghost { border: 1px solid #E5E0D8; background: white; color: #0D1117; }
-    .btn-primary { background: #A8732A; color: white; }
-    .profile-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
-    .profile-field { display: grid; gap: 0.5rem; }
-    .profile-field label { font-size: 0.95rem; font-weight: 600; color: #4B5563; }
-    .profile-field input, .profile-field textarea { width: 100%; min-height: 44px; border: 1px solid #E5E0D8; border-radius: 16px; padding: 0.95rem 1rem; background: white; color: #0D1117; font-family: 'Inter', sans-serif; font-size: 0.95rem; transition: border-color .2s, box-shadow .2s; }
-    .profile-field textarea { min-height: 140px; resize: vertical; }
-    .profile-field input:focus, .profile-field textarea:focus { outline: none; border-color: #C9933A; box-shadow: 0 0 0 3px rgba(201,147,58,0.12); }
-    .profile-field input[disabled], .profile-field input[readonly] { background: #F8F4EF; color: #6B7280; cursor: not-allowed; }
-    .profile-field-full { grid-column: 1 / -1; }
-    .profile-actions { display: flex; justify-content: flex-end; gap: 1rem; }
-    .btn-ghost { border: 1px solid #E5E0D8; background: white; color: #0D1117; }
-    .btn-primary { background: #A8732A; color: white; }
+    
+    .profile-field label { font-size: 0.9rem; font-weight: 600; color: #4B5563; }
+    .profile-field label .required-asterisk { color: #A8732A; font-weight: bold; margin-left: 0.2rem; }
+    
+    /* Filled gray inputs with no visible borders */
+    .profile-field input, .profile-field textarea, .profile-field select { width: 100%; min-height: 46px; border: 2px solid transparent; border-radius: 12px; padding: 0.85rem 1.1rem; background: #F3F4F6; color: #0D1117; font-family: 'Inter', sans-serif; font-size: 0.95rem; box-sizing: border-box; transition: border-color .2s, background .2s, box-shadow .2s; }
+    .profile-field textarea { min-height: 120px; resize: vertical; }
+    
+    .profile-field input:focus, .profile-field textarea:focus, .profile-field select:focus { outline: none; border-color: #C9933A; background: white; box-shadow: 0 0 0 3px rgba(201,147,58,0.12); }
+    .profile-field input[disabled], .profile-field input[readonly] { background: #E5E7EB; color: #6B7280; cursor: not-allowed; }
+
+    /* ─── Avatar Picker Row ──────────────── */
+    .avatar-picker-row { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem; }
+    .avatar-main-preview { width: 90px; height: 90px; border-radius: 50%; overflow: hidden; border: 3px solid #A8732A; background: #F3F4F6; flex-shrink: 0; box-shadow: 0 4px 12px rgba(168,115,42,0.15); }
+    .avatar-main-preview img { width: 100%; height: 100%; object-fit: cover; }
+    
+    .avatar-picker-actions { display: flex; align-items: center; gap: 0.75rem; }
+    
+    /* ─── Buttons (Pill-shaped) ──────────────── */
+    .btn-pill { display: inline-flex; align-items: center; justify-content: center; padding: 0.75rem 1.75rem; font-size: 0.9rem; font-weight: 600; border-radius: 9999px; border: 1px solid transparent; cursor: pointer; transition: all 0.2s ease-in-out; text-decoration: none; min-width: 110px; }
+    .btn-pill-primary { background: #A8732A; color: white; }
+    .btn-pill-primary:hover { background: #8E5E1E; transform: translateY(-1px); }
+    
+    .btn-pill-outline { background: transparent; border-color: #E5E0D8; color: #4B5563; }
+    .btn-pill-outline:hover { background: #F9F8F6; border-color: #C9933A; color: #A8732A; }
+    
+    .btn-pill-ghost { background: transparent; border-color: transparent; color: #6B7280; }
+    .btn-pill-ghost:hover { background: #F3F4F6; color: #374151; }
+    
+    .profile-form-wrap { display: flex !important; justify-content: flex-start !important; width: 100% !important; }
+    .profile-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; border-top: 1px solid rgba(229,224,216,0.5); padding-top: 1.5rem; }
+    
+    /* ─── Avatar Grid Overlay/Wrapper ──────────────── */
+    .avatar-grid-dropdown { margin-top: 1rem; padding: 1rem; background: #FBF9F6; border: 1px solid #E5E0D8; border-radius: 16px; display: none; }
+    .avatar-grid-dropdown.active { display: block; }
+    .avatar-grid-title { font-size: 0.85rem; font-weight: 600; color: #6B7280; margin-bottom: 0.75rem; display: block; text-transform: uppercase; letter-spacing: 0.05em; }
+    .avatar-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .avatar-thumb { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; border: 2px solid transparent; cursor: pointer; transition: transform 0.15s, border-color 0.15s; }
+    .avatar-thumb:hover { transform: scale(1.1); }
+    .avatar-thumb.selected { border-color: #A8732A; box-shadow: 0 0 0 3px rgba(168, 115, 42, 0.2); }
+    .avatar-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+    /* ─── Alerts ──────────────── */
+    .profile-alert { padding: 1rem 1.5rem; border-radius: 16px; font-size: 0.95rem; margin-bottom: 1.5rem; display: flex; align-items: center; border-width: 1px; border-style: solid; }
+    .profile-alert-error { background: #FEE2E2; border-color: #FCA5A5; color: #B91C1C; }
+    .profile-alert-success { background: #DCFCE7; border-color: #86EFAC; color: #15803D; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .profile-shell { margin: 1rem auto !important; padding: 0 1rem !important; }
+      .profile-layout { grid-template-columns: 1fr; }
+      .profile-content { width: 100% !important; }
+    }
+    .field-error-msg { font-size: 0.82rem; color: #DC2626; position: absolute; bottom: -1.45rem; left: 0.25rem; font-weight: 500; display: none; }
+    .field-error-msg.active { display: block; }
+    .profile-field input.input-error { border-color: #EF4444 !important; background-color: #FEF2F2 !important; }
+    
+    /* ─── Flatpickr Custom Styling ──────────────── */
+    .flatpickr-calendar { border-radius: 16px !important; border: 1px solid #E5E0D8 !important; box-shadow: 0 10px 30px rgba(13,17,23,0.08) !important; font-family: 'Inter', sans-serif !important; background: white !important; }
+    .flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange,
+    .flatpickr-day.selected.inRange, .flatpickr-day.startRange.inRange, .flatpickr-day.endRange.inRange,
+    .flatpickr-day.selected:focus, .flatpickr-day.startRange:focus, .flatpickr-day.endRange:focus,
+    .flatpickr-day.selected:hover, .flatpickr-day.startRange:hover, .flatpickr-day.endRange:hover,
+    .flatpickr-day.selected.prevMonthDay, .flatpickr-day.startRange.prevMonthDay, .flatpickr-day.endRange.prevMonthDay,
+    .flatpickr-day.selected.nextMonthDay, .flatpickr-day.startRange.nextMonthDay, .flatpickr-day.endRange.nextMonthDay {
+      background: #A8732A !important; border-color: #A8732A !important; color: white !important;
+    }
+    .flatpickr-months .flatpickr-month { color: #A8732A !important; fill: #A8732A !important; }
+    .flatpickr-current-month .numInputWrapper span.arrowUp:after { border-bottom-color: #A8732A !important; }
+    .flatpickr-current-month .numInputWrapper span.arrowDown:after { border-top-color: #A8732A !important; }
+    .flatpickr-months .flatpickr-prev-month:hover svg, .flatpickr-months .flatpickr-next-month:hover svg { fill: #A8732A !important; }
+    .flatpickr-day.today { border-color: #C9933A !important; }
+    .flatpickr-day.today:hover { background: #FAF7F2 !important; color: #A8732A !important; }
+    
+    /* Make Flatpickr input visually clean and matched */
+    .flatpickr-input { background-color: #F3F4F6 !important; }
+    .flatpickr-input[readonly] { cursor: pointer !important; background-color: #F3F4F6 !important; }
+    
+    /* ─── Custom Multiselect Chips UI ──────────────── */
+    .custom-multiselect { position: relative; width: 100%; }
+    .multiselect-chips-container { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; min-height: 46px; border: 2px solid transparent; border-radius: 12px; padding: 0.5rem 0.75rem; background: #F3F4F6; box-sizing: border-box; cursor: pointer; transition: border-color .2s, background .2s, box-shadow .2s; }
+    .multiselect-chips-container:focus-within { outline: none; border-color: #C9933A; background: white; box-shadow: 0 0 0 3px rgba(201,147,58,0.12); }
+    
+    .multiselect-placeholder { color: #9CA3AF; font-size: 0.95rem; pointer-events: none; margin-left: 0.25rem; }
+    .multiselect-search { border: none; background: transparent; outline: none; font-family: 'Inter', sans-serif; font-size: 0.95rem; color: #0D1117; flex: 1; min-width: 60px; padding: 0.25rem 0; }
+    
+    .multiselect-chip { display: inline-flex; align-items: center; gap: 0.35rem; background: #FAF7F2; border: 1px solid #E5E0D8; color: #A8732A; padding: 0.25rem 0.65rem; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; line-height: 1; transition: background 0.15s; }
+    .multiselect-chip:hover { background: #F5EFEB; }
+    .multiselect-chip-remove { border: none; background: transparent; cursor: pointer; font-size: 0.9rem; font-weight: bold; color: #8A857C; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 1; transition: color 0.15s; }
+    .multiselect-chip-remove:hover { color: #DC2626; }
+    
+    .multiselect-dropdown { position: absolute; top: calc(100% + 4px); left: 0; width: 100%; max-height: 220px; overflow-y: auto; background: white; border: 1px solid #E5E0D8; border-radius: 12px; box-shadow: 0 10px 35px rgba(13,17,23,0.08); z-index: 100; display: none; padding: 0.5rem 0; box-sizing: border-box; }
+    .multiselect-dropdown.active { display: block; }
+    
+    .multiselect-option { padding: 0.65rem 1rem; font-size: 0.95rem; color: #374151; cursor: pointer; transition: background 0.15s, color 0.15s; }
+    .multiselect-option:hover { background: #FAF7F2; color: #A8732A; }
+    .multiselect-option.selected { background: #FAF7F2; color: #A8732A; font-weight: 600; cursor: default; opacity: 0.6; }
+    .multiselect-option.disabled { opacity: 0.4; cursor: not-allowed; }
+    .multiselect-option.disabled:hover { background: transparent; color: #374151; }
   </style>
 </head>
 <body class="profile-page">
@@ -258,6 +445,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </nav>
 
 <main class="profile-shell">
+  <!-- Breadcrumbs -->
+  <div class="profile-breadcrumbs">
+    <a href="../dashboard.php">Home</a>
+    <span>&rsaquo;</span>
+    <a href="edit-profile.php">My Profile</a>
+  </div>
+  
+  <!-- Page Title -->
+  <h1 class="profile-header-title">My Account</h1>
+
   <section class="profile-form-wrap">
     <?php foreach ($errors as $error): ?>
       <div class="profile-alert profile-alert-error"><?= e($error) ?></div>
@@ -267,114 +464,242 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="profile-alert profile-alert-success"><?= e($success) ?></div>
     <?php endif; ?>
 
-    <form class="profile-form" method="post" action="edit-profile.php">
+    <form class="profile-form" method="post" action="edit-profile.php" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>" />
 
-      <div class="profile-card">
-        <div class="profile-card-header">
-          <span class="profile-card-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.8"/>
-              <path d="M5.5 19c1.3-3.2 3.5-4.8 6.5-4.8s5.2 1.6 6.5 4.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <div>
-            <h1>Edit Profile</h1>
-          </div>
-        </div>
+      <div class="profile-layout">
+        
+        <!-- Left Sidebar Navigation -->
+        <aside class="profile-sidebar">
+          <button type="button" class="tab-btn active" id="tab-personal" onclick="switchTab('personal')">
+            <span>👤</span> Personal Information
+          </button>
+          <button type="button" class="tab-btn" id="tab-professional" onclick="switchTab('professional')">
+            <span>🎓</span> Professional Info
+          </button>
+          <button type="button" class="tab-btn" id="tab-security" onclick="switchTab('security')">
+            <span>🔒</span> Account Security
+          </button>
+        </aside>
 
-        <div class="profile-card-body">
-          <div class="profile-form-grid">
-            <div class="profile-field">
-              <label for="name">Full Name</label>
-              <input id="name" name="name" type="text" maxlength="150" required value="<?= e($profile['name'] ?? '') ?>" />
+        <!-- Right Content Panels -->
+        <div class="profile-content">
+          
+          <!-- Tab 1: Personal Information -->
+          <div id="panel-personal" class="profile-panel active">
+            <h2 class="panel-title">Personal Information</h2>
+            
+            <!-- Avatar Picker Row -->
+            <div class="avatar-picker-row">
+              <div class="avatar-main-preview">
+                <img id="avatar-preview-img" src="../../assets/img/avatars/<?= !empty($profile['avatar']) ? e($profile['avatar']) : 'avatar1.png' ?>" alt="Selected Avatar" />
+              </div>
+              <div class="avatar-picker-actions">
+                <button type="button" class="btn-pill btn-pill-primary" id="btn-choose-avatar" onclick="toggleAvatarGrid()">Choose Avatar</button>
+                <button type="button" class="btn-pill btn-pill-outline" id="btn-remove-avatar" onclick="removeAvatar()">Remove</button>
+              </div>
+              <input type="hidden" name="avatar" id="selected_avatar" value="<?= e($profile['avatar'] ?? 'avatar1.png') ?>" />
             </div>
 
-            <div class="profile-field">
-              <label for="username">Username</label>
-              <input id="username" type="text" disabled value="<?= e($profile['username'] ?? '') ?>" />
-            </div>
-
-            <div class="profile-field">
-              <label for="date_of_birth">Date of Birth</label>
-              <input id="date_of_birth" name="date_of_birth" type="date" value="<?= e($profile['date_of_birth'] ?? '') ?>" />
-            </div>
-
-            <div class="profile-field">
-              <label for="city">City</label>
-              <input id="city" name="city" type="text" maxlength="120" value="<?= e($profile['city'] ?? '') ?>" />
-            </div>
-
-            <div class="profile-field">
-              <label for="phone">Phone Number</label>
-              <input id="phone" name="phone" type="tel" maxlength="30" value="<?= e($profile['phone'] ?? '') ?>" />
-            </div>
-
-            <div class="profile-field">
-              <label for="email">Email</label>
-              <input id="email" type="email" disabled value="<?= e($profile['email'] ?? '') ?>" />
-            </div>
-
-            <div class="profile-field profile-field-full">
-              <label for="bio">Bio</label>
-              <textarea id="bio" name="bio" maxlength="1000" rows="5"><?= e($profile['bio'] ?? '') ?></textarea>
-            </div>
-          </div>
-
-          <div class="profile-section-divider"></div>
-
-          <h2 class="profile-section-title">Professional Information</h2>
-
-          <div class="profile-form-grid">
-            <div class="profile-field">
-              <label for="institution">Institution/College Name</label>
-              <input id="institution" name="institution" type="text" maxlength="120" value="<?= e($profile['institution'] ?? '') ?>" />
-            </div>
-
-            <div class="profile-field">
-              <label for="course">Course/Degree</label>
-              <input id="course" name="course" type="text" placeholder="e.g., LLB, BA-LLB, LLM" maxlength="120" value="<?= e($profile['course'] ?? '') ?>" />
-            </div>
-
-            <div class="profile-field">
-              <label for="year_semester">Year/Semester of Study</label>
-              <input id="year_semester" name="year_semester" type="text" maxlength="120" value="<?= e($profile['year_semester'] ?? '') ?>" />
-            </div>
-
-            <div class="profile-field">
-              <label for="linkedin_url">LinkedIn URL</label>
-              <input id="linkedin_url" name="linkedin_url" type="url" maxlength="255" value="<?= e($profile['linkedin_url'] ?? '') ?>" />
-            </div>
-
-            <div class="profile-field profile-field-full">
-              <label for="areas_of_interest">Areas of Interest</label>
-              <textarea id="areas_of_interest" name="areas_of_interest" maxlength="1000" rows="4" placeholder="e.g., Corporate Law, Intellectual Property, Human Rights"><?= e($profile['areas_of_interest'] ?? '') ?></textarea>
-            </div>
-
-            <div class="profile-field profile-field-full">
-              <label for="skills">Skills</label>
-              <textarea id="skills" name="skills" maxlength="1000" rows="4" placeholder="e.g., Legal Research, Contract Drafting, Litigation, Legal Writing"><?= e($profile['skills'] ?? '') ?></textarea>
-            </div>
-
-            <div class="profile-field profile-field-full">
-              <label for="resume">Resume Upload (PDF or Word)</label>
-              <div class="file-upload-wrapper">
-                <input id="resume" name="resume" type="file" accept=".pdf,.doc,.docx" />
-                <span class="file-upload-hint">Max size: 500KB (PDF, DOC, DOCX)</span>
-                <?php if (!empty($profile['resume_file'])): ?>
-                  <div class="file-uploaded">
-                    <span class="file-name"><?= e($profile['resume_file']) ?></span>
-                    <a href="uploads/resumes/<?= e($profile['resume_file']) ?>" target="_blank" class="file-download">View</a>
+            <!-- Avatar Grid Dropdown -->
+            <div class="avatar-grid-dropdown" id="avatar-dropdown">
+              <span class="avatar-grid-title">Select Avatar Image</span>
+              <div class="avatar-grid">
+                <?php for ($i = 1; $i <= 10; $i++): 
+                    $filename = "avatar{$i}.png";
+                    $isSelected = ($profile['avatar'] ?? 'avatar1.png') === $filename;
+                ?>
+                  <div class="avatar-thumb <?= $isSelected ? 'selected' : '' ?>" data-filename="<?= $filename ?>" onclick="selectAvatar(this, '<?= $filename ?>')">
+                    <img src="../../assets/img/avatars/<?= $filename ?>" alt="Avatar <?= $i ?>" />
                   </div>
-                <?php endif; ?>
+                <?php endfor; ?>
               </div>
             </div>
+            
+            <div class="profile-form-grid">
+              <div class="profile-field">
+                <label for="name">Full Name <span class="required-asterisk">*</span></label>
+                <input id="name" name="name" type="text" maxlength="150" required value="<?= e($profile['name'] ?? '') ?>" />
+              </div>
+
+              <div class="profile-field">
+                <label for="username">Username <span class="required-asterisk">*</span></label>
+                <input id="username" name="username" type="text" minlength="3" maxlength="30" required value="<?= e($profile['username'] ?? '') ?>" oninput="checkUniqueness('username')" />
+                <span class="field-error-msg" id="username-error"></span>
+              </div>
+
+              <div class="profile-field">
+                <label for="date_of_birth">Date of Birth</label>
+                <input id="date_of_birth" name="date_of_birth" type="text" placeholder="Select Date of Birth" value="<?= e($profile['date_of_birth'] ?? '') ?>" />
+              </div>
+
+              <div class="profile-field">
+                <label for="gender">Gender</label>
+                <select id="gender" name="gender">
+                  <option value="">Select Gender</option>
+                  <option value="Female" <?= ($profile['gender'] ?? '') === 'Female' ? 'selected' : '' ?>>Female</option>
+                  <option value="Male" <?= ($profile['gender'] ?? '') === 'Male' ? 'selected' : '' ?>>Male</option>
+                  <option value="Other" <?= ($profile['gender'] ?? '') === 'Other' ? 'selected' : '' ?>>Other</option>
+                  <option value="Prefer not to say" <?= ($profile['gender'] ?? '') === 'Prefer not to say' ? 'selected' : '' ?>>Prefer not to say</option>
+                </select>
+              </div>
+
+              <div class="profile-field">
+                <label for="phone">Phone Number</label>
+                <input id="phone" name="phone" type="tel" maxlength="30" value="<?= e($profile['phone'] ?? '') ?>" />
+              </div>
+
+              <div class="profile-field">
+                <label for="email">Email <span class="required-asterisk">*</span></label>
+                <input id="email" name="email" type="email" required value="<?= e($profile['email'] ?? '') ?>" oninput="checkUniqueness('email')" />
+                <span class="field-error-msg" id="email-error"></span>
+              </div>
+
+              <div class="profile-field profile-field-full">
+                <label for="bio">Bio</label>
+                <textarea id="bio" name="bio" maxlength="1000" rows="5"><?= e($profile['bio'] ?? '') ?></textarea>
+              </div>
+            </div>
+            
+            <div class="profile-actions">
+              <a href="../dashboard.php" class="btn-pill btn-pill-outline">Cancel</a>
+              <button type="submit" class="btn-pill btn-pill-primary">Update</button>
+            </div>
           </div>
 
-          <div class="profile-actions">
-            <a href="../dashboard.php" class="btn-ghost">Cancel</a>
-            <button type="submit" class="btn-primary">Update</button>
+          <!-- Tab 2: Professional Information -->
+          <div id="panel-professional" class="profile-panel">
+            <h2 class="panel-title">Professional Information</h2>
+            
+            <div class="profile-form-grid">
+              <div class="profile-field">
+                <label for="institution">Institution/College Name</label>
+                <input id="institution" name="institution" type="text" maxlength="120" value="<?= e($profile['institution'] ?? '') ?>" />
+              </div>
+
+              <div class="profile-field">
+                <label for="course">Course/Degree</label>
+                <input id="course" name="course" type="text" placeholder="e.g., LLB, BA-LLB, LLM" maxlength="120" value="<?= e($profile['course'] ?? '') ?>" />
+              </div>
+
+              <div class="profile-field">
+                <label for="year_semester">Year/Semester of Study</label>
+                <input id="year_semester" name="year_semester" type="text" maxlength="120" value="<?= e($profile['year_semester'] ?? '') ?>" />
+              </div>
+
+              <div class="profile-field">
+                <label for="department">Department/Branch</label>
+                <input id="department" name="department" type="text" maxlength="150" placeholder="e.g. Law, Engineering, Commerce" value="<?= e($profile['department'] ?? '') ?>" />
+              </div>
+
+              <div class="profile-field profile-field-full">
+                <label>Areas of Interest (Max 5)</label>
+                <div class="custom-multiselect" id="multiselect-areas">
+                  <div class="multiselect-chips-container" onclick="focusSearch('areas')">
+                    <span class="multiselect-placeholder" id="placeholder-areas">Select areas of interest...</span>
+                    <input type="text" class="multiselect-search" id="search-areas" oninput="filterOptions('areas')" onfocus="showDropdown('areas')" onblur="hideDropdown('areas')" autocomplete="off" />
+                  </div>
+                  <div class="multiselect-dropdown" id="dropdown-areas">
+                    <?php
+                    $predefined_areas = [
+                        'Corporate Law', 'Criminal Law', 'Intellectual Property', 
+                        'Human Rights', 'Legal Tech', 'Constitutional Law', 
+                        'Cyber Law', 'Family Law', 'Alternative Dispute Resolution', 'Tax Law',
+                        'Software Engineering', 'Data Science & AI', 'Cybersecurity', 
+                        'Mechanical Engineering', 'Electrical Engineering'
+                    ];
+                    foreach ($predefined_areas as $area):
+                        $selected = in_array($area, $profile['areas_of_interest'] ?? [], true);
+                    ?>
+                      <div class="multiselect-option <?= $selected ? 'selected' : '' ?>" data-value="<?= e($area) ?>" onclick="selectOption('areas', '<?= e($area) ?>')">
+                        <?= e($area) ?>
+                      </div>
+                    <?php endforeach; ?>
+                  </div>
+                  <div id="hidden-inputs-areas">
+                    <?php foreach (($profile['areas_of_interest'] ?? []) as $area): ?>
+                      <input type="hidden" name="areas_of_interest[]" value="<?= e($area) ?>" />
+                    <?php endforeach; ?>
+                  </div>
+                </div>
+              </div>
+
+              <div class="profile-field profile-field-full">
+                <label>Skills (Max 5)</label>
+                <div class="custom-multiselect" id="multiselect-skills">
+                  <div class="multiselect-chips-container" onclick="focusSearch('skills')">
+                    <span class="multiselect-placeholder" id="placeholder-skills">Select skills...</span>
+                    <input type="text" class="multiselect-search" id="search-skills" oninput="filterOptions('skills')" onfocus="showDropdown('skills')" onblur="hideDropdown('skills')" autocomplete="off" />
+                  </div>
+                  <div class="multiselect-dropdown" id="dropdown-skills">
+                    <?php
+                    $predefined_skills = [
+                        'Legal Research', 'Legal Writing', 'Contract Drafting', 
+                        'Advocacy', 'Litigation', 'Client Counseling', 
+                        'Public Speaking', 'Legal Analysis', 'Negotiation', 'Due Diligence',
+                        'Python & Programming', 'Web Development', 'Machine Learning & AI', 
+                        'Data Analysis', 'Project Management', 'System Architecture'
+                    ];
+                    foreach ($predefined_skills as $skill):
+                        $selected = in_array($skill, $profile['skills'] ?? [], true);
+                    ?>
+                      <div class="multiselect-option <?= $selected ? 'selected' : '' ?>" data-value="<?= e($skill) ?>" onclick="selectOption('skills', '<?= e($skill) ?>')">
+                        <?= e($skill) ?>
+                      </div>
+                    <?php endforeach; ?>
+                  </div>
+                  <div id="hidden-inputs-skills">
+                    <?php foreach (($profile['skills'] ?? []) as $skill): ?>
+                      <input type="hidden" name="skills[]" value="<?= e($skill) ?>" />
+                    <?php endforeach; ?>
+                  </div>
+                </div>
+              </div>
+
+              <div class="profile-field profile-field-full">
+                <label for="resume">Resume Upload (PDF or Word)</label>
+                <div class="file-upload-wrapper">
+                  <input id="resume" name="resume" type="file" accept=".pdf,.doc,.docx" />
+                  <span class="file-upload-hint">Max size: 500KB (PDF, DOC, DOCX)</span>
+                  <?php if (!empty($profile['resume_file'])): ?>
+                    <div class="file-uploaded" style="margin-top:0.5rem; display:flex; align-items:center; gap:0.75rem;">
+                      <span class="file-name" style="font-size:0.9rem; color:#4B5563;"><?= e($profile['resume_file']) ?></span>
+                      <a href="uploads/resumes/<?= e($profile['resume_file']) ?>" target="_blank" class="btn-pill btn-pill-outline" style="padding:0.35rem 1rem; font-size:0.8rem; min-width:auto;">View</a>
+                    </div>
+                  <?php endif; ?>
+                </div>
+              </div>
+            </div>
+            
+            <div class="profile-actions">
+              <a href="../dashboard.php" class="btn-pill btn-pill-outline">Cancel</a>
+              <button type="submit" class="btn-pill btn-pill-primary">Update</button>
+            </div>
           </div>
+
+          <!-- Tab 3: Account Security -->
+          <div id="panel-security" class="profile-panel">
+            <h2 class="panel-title">Account Security</h2>
+            
+            <div class="profile-form-grid">
+              <div class="profile-field">
+                <label>Username</label>
+                <input type="text" readonly value="<?= e($profile['username'] ?? '') ?>" />
+              </div>
+              <div class="profile-field">
+                <label>Email Address</label>
+                <input type="text" readonly value="<?= e($profile['email'] ?? '') ?>" />
+              </div>
+              <div class="profile-field profile-field-full">
+                <label>Account Status</label>
+                <input type="text" readonly value="Active student account (Firestore verified)" />
+              </div>
+            </div>
+            <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #6B7280; line-height: 1.5;">
+              🛡️ For security reasons, email addresses cannot be changed directly. Password reset and verification emails are managed securely. Contact support if you need to update your email credentials.
+            </p>
+          </div>
+          
         </div>
       </div>
     </form>
@@ -383,7 +708,258 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <script src="../../assets/js/script.js"></script>
 <script>
+  function switchTab(tabName) {
+    // Switch active buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    document.getElementById('tab-' + tabName).classList.add('active');
+
+    // Switch active panels
+    document.querySelectorAll('.profile-panel').forEach(panel => {
+      panel.classList.remove('active');
+    });
+    document.getElementById('panel-' + tabName).classList.add('active');
+  }
+
+  function toggleAvatarGrid() {
+    const dropdown = document.getElementById('avatar-dropdown');
+    dropdown.classList.toggle('active');
+  }
+
+  function selectAvatar(element, filename) {
+    // Remove selected class from all options
+    document.querySelectorAll('.avatar-thumb').forEach(function(opt) {
+      opt.classList.remove('selected');
+    });
+    // Add selected class to the clicked element
+    element.classList.add('selected');
+    // Update the hidden input value
+    document.getElementById('selected_avatar').value = filename;
+    // Update the live preview image
+    document.getElementById('avatar-preview-img').src = '../../assets/img/avatars/' + filename;
+    
+    // Hide the grid after selecting
+    document.getElementById('avatar-dropdown').classList.remove('active');
+  }
+
+  function removeAvatar() {
+    const defaultFilename = 'avatar1.png';
+    // Update hidden input
+    document.getElementById('selected_avatar').value = defaultFilename;
+    // Update preview img
+    document.getElementById('avatar-preview-img').src = '../../assets/img/avatars/' + defaultFilename;
+    // Reset selected thumbnail highlighting
+    document.querySelectorAll('.avatar-thumb').forEach(function(opt) {
+      opt.classList.remove('selected');
+      if (opt.getAttribute('data-filename') === defaultFilename) {
+        opt.classList.add('selected');
+      }
+    });
+  }
+
+  let checkTimers = {};
+
+  function checkUniqueness(fieldName) {
+    const input = document.getElementById(fieldName);
+    const errorSpan = document.getElementById(fieldName + '-error');
+    const value = input.value.trim();
+
+    // Clear previous check timer for debounce
+    clearTimeout(checkTimers[fieldName]);
+
+    if (value === '') {
+      errorSpan.classList.remove('active');
+      input.classList.remove('input-error');
+      return;
+    }
+
+    checkTimers[fieldName] = setTimeout(function() {
+      fetch('../../api/validate_uniqueness.php?type=' + fieldName + '&value=' + encodeURIComponent(value))
+        .then(response => response.json())
+        .then(data => {
+          if (!data.available) {
+            errorSpan.textContent = data.message;
+            errorSpan.classList.add('active');
+            input.classList.add('input-error');
+          } else {
+            errorSpan.classList.remove('active');
+            input.classList.remove('input-error');
+          }
+        })
+        .catch(err => {
+          console.error('AJAX error checking uniqueness:', err);
+        });
+    }, 400); // 400ms debounce
+  }
+
+  // Store selected values for chips
+  const multiselectData = {
+    areas: [],
+    skills: []
+  };
+
+  function initMultiselect(type) {
+    const hiddenInputs = document.querySelectorAll('#hidden-inputs-' + type + ' input');
+    hiddenInputs.forEach(input => {
+      if (input.value.trim() !== '') {
+        multiselectData[type].push(input.value.trim());
+      }
+    });
+    renderChips(type);
+  }
+
+  function focusSearch(type) {
+    document.getElementById('search-' + type).focus();
+  }
+
+  function showDropdown(type) {
+    // Hide other dropdowns
+    document.querySelectorAll('.multiselect-dropdown').forEach(d => {
+      if (d.id !== 'dropdown-' + type) d.classList.remove('active');
+    });
+    const dropdown = document.getElementById('dropdown-' + type);
+    dropdown.classList.add('active');
+    updateOptionStates(type);
+  }
+
+  function hideDropdown(type) {
+    // Small delay to allow selectOption triggers before closure
+    setTimeout(function() {
+      const dropdown = document.getElementById('dropdown-' + type);
+      dropdown.classList.remove('active');
+      document.getElementById('search-' + type).value = '';
+      filterOptions(type);
+    }, 200);
+  }
+
+  // Handle clicking outside to close dropdowns
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.custom-multiselect')) {
+      document.querySelectorAll('.multiselect-dropdown').forEach(d => {
+        d.classList.remove('active');
+      });
+      document.querySelectorAll('.multiselect-search').forEach(input => {
+        input.value = '';
+      });
+      document.querySelectorAll('.multiselect-option').forEach(opt => {
+        opt.style.display = 'block';
+      });
+    }
+  });
+
+  function filterOptions(type) {
+    const query = document.getElementById('search-' + type).value.toLowerCase();
+    const dropdown = document.getElementById('dropdown-' + type);
+    const options = dropdown.querySelectorAll('.multiselect-option');
+    options.forEach(opt => {
+      const val = opt.textContent.trim().toLowerCase();
+      if (val.includes(query)) {
+        opt.style.display = 'block';
+      } else {
+        opt.style.display = 'none';
+      }
+    });
+  }
+
+  function renderChips(type) {
+    const container = document.querySelector('#multiselect-' + type + ' .multiselect-chips-container');
+    const searchInput = document.getElementById('search-' + type);
+    const placeholder = document.getElementById('placeholder-' + type);
+    
+    // Remove existing chips
+    container.querySelectorAll('.multiselect-chip').forEach(c => c.remove());
+
+    if (multiselectData[type].length > 0) {
+      placeholder.style.display = 'none';
+    } else {
+      placeholder.style.display = 'block';
+    }
+
+    multiselectData[type].forEach(value => {
+      const chip = document.createElement('span');
+      chip.className = 'multiselect-chip';
+      chip.innerHTML = e_js(value) + ` <button type="button" class="multiselect-chip-remove" onclick="removeOption('${type}', '${value.replace(/'/g, "\\'")}')">&times;</button>`;
+      container.insertBefore(chip, searchInput);
+    });
+
+    // Update hidden inputs for form submit
+    const hiddenContainer = document.getElementById('hidden-inputs-' + type);
+    hiddenContainer.innerHTML = '';
+    multiselectData[type].forEach(value => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = type === 'areas' ? 'areas_of_interest[]' : 'skills[]';
+      input.value = value;
+      hiddenContainer.appendChild(input);
+    });
+
+    updateOptionStates(type);
+  }
+
+  function updateOptionStates(type) {
+    const dropdown = document.getElementById('dropdown-' + type);
+    const options = dropdown.querySelectorAll('.multiselect-option');
+    const limitReached = multiselectData[type].length >= 5;
+
+    options.forEach(opt => {
+      const val = opt.getAttribute('data-value');
+      const isSelected = multiselectData[type].includes(val);
+      
+      opt.className = 'multiselect-option';
+      if (isSelected) {
+        opt.classList.add('selected');
+      } else if (limitReached) {
+        opt.classList.add('disabled');
+      }
+    });
+  }
+
+  function selectOption(type, value) {
+    if (multiselectData[type].includes(value)) return;
+    if (multiselectData[type].length >= 5) {
+      alert('You can select a maximum of 5 items.');
+      return;
+    }
+    multiselectData[type].push(value);
+    renderChips(type);
+    document.getElementById('search-' + type).value = '';
+    document.getElementById('search-' + type).focus();
+    filterOptions(type);
+  }
+
+  function removeOption(type, value) {
+    multiselectData[type] = multiselectData[type].filter(v => v !== value);
+    renderChips(type);
+  }
+
+  function e_js(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   document.addEventListener('DOMContentLoaded', function() {
+    // Initialize custom multiselects
+    initMultiselect('areas');
+    initMultiselect('skills');
+
+    // Initialize Flatpickr
+    flatpickr('#date_of_birth', {
+      dateFormat: 'Y-m-d', // Database save format
+      altInput: true,
+      altFormat: 'F j, Y', // Visual display format
+      maxDate: 'today',
+      disableMobile: true // Force desktop UI consistency on mobile
+    });
+
+    const form = document.querySelector('.profile-form');
+    form.addEventListener('submit', function(e) {
+      const activeErrors = document.querySelectorAll('.field-error-msg.active');
+      if (activeErrors.length > 0) {
+        e.preventDefault();
+        alert('Please fix the errors on the form before updating.');
+      }
+    });
+
     const alerts = document.querySelectorAll('.profile-alert');
     alerts.forEach(function(alert) {
       if (alert.classList.contains('profile-alert-success')) {
@@ -397,11 +973,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     });
   });
 </script>
-<style>
-  @keyframes slideUp {
-    from { opacity: 1; transform: translateX(-50%) translateY(0); }
-    to { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-  }
-</style>
 </body>
 </html>
