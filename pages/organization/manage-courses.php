@@ -8,13 +8,17 @@ if (!is_logged_in()) {
 }
 
 $user = current_user();
-if (($user['role'] ?? '') !== 'organization') {
+$is_org = ($user['role'] ?? '') === 'organization';
+$is_teacher = ($user['role'] ?? '') === 'teacher';
+
+if (!$is_org && !$is_teacher) {
     redirect('pages/dashboard.php');
 }
 
 $db = get_firestore();
+$filter_field = $is_teacher ? 'teacherId' : 'organizationId';
 $org_courses = $db->query('courses', [
-    ['organizationId', 'EQUAL', $user['id']]
+    [$filter_field, 'EQUAL', $user['id']]
 ], 200);
 
 // Sort by createdAt descending
@@ -154,6 +158,45 @@ function diffColor(string $diff): string
       font-size: 3rem;
       margin-bottom: 1rem;
     }
+    .btn-action-edit {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.45rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 9999px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--ink-mid);
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .btn-action-edit:hover {
+      background: #FAF7F2;
+      border-color: var(--gold);
+      color: var(--gold-dark);
+    }
+    .btn-action-lessons {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.45rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 9999px;
+      border: 1px solid transparent;
+      background: var(--gold);
+      color: white;
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .btn-action-lessons:hover {
+      background: var(--gold-dark);
+      transform: translateY(-1px);
+    }
   </style>
 </head>
 <body>
@@ -206,6 +249,7 @@ function diffColor(string $diff): string
               <th>Price</th>
               <th>Students Enrolled</th>
               <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -263,6 +307,12 @@ function diffColor(string $diff): string
                   <span class="status-badge status-<?= $c['status'] ?>">
                     <?= e($c['status']) ?>
                   </span>
+                </td>
+                <td>
+                  <div style="display:flex; gap:0.5rem;">
+                    <a href="edit-course.php?id=<?= urlencode($c['__id']) ?>" class="btn-action-edit">Edit</a>
+                    <a href="manage-lessons.php?id=<?= urlencode($c['__id']) ?>" class="btn-action-lessons">Lessons</a>
+                  </div>
                 </td>
               </tr>
             <?php endforeach; ?>

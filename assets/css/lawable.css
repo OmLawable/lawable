@@ -435,14 +435,15 @@ nav.scrolled {
   padding: 0.75rem;
   border: 2px dashed var(--border);
   border-radius: 16px;
-  background: #FAFAF8;
+  background: var(--page-bg);
+  color: var(--ink);
   cursor: pointer;
   transition: all .2s;
 }
 
 .profile-field input[type="file"]:hover {
   border-color: var(--gold);
-  background: #FCF8F1;
+  background: var(--white);
 }
 
 .profile-field input[type="file"]:focus {

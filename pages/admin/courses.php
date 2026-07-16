@@ -30,7 +30,7 @@ foreach ($courses as $c) {
         'status'            => $c['status'] ?? 'draft',
         'created_at'        => $c['createdAt'] ?? '',
         'updated_at'        => $c['updatedAt'] ?? '',
-        'organization_name' => $c['organizationName'] ?? '',
+        'organization_name' => $c['organizationName'] ?? $c['teacherName'] ?? '',
         'enrollment_count'  => $enrollmentCounts[$cId] ?? 0
     ];
 }

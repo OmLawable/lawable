@@ -7,7 +7,9 @@ if (!is_logged_in()) {
 }
 
 $user = current_user();
-if (($user['role'] ?? '') !== 'organization') {
+$is_org = ($user['role'] ?? '') === 'organization';
+$is_teacher = ($user['role'] ?? '') === 'teacher';
+if (!$is_org && !$is_teacher) {
     redirect('pages/dashboard.php');
 }
 ?>

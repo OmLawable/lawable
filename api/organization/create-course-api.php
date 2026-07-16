@@ -25,8 +25,10 @@ if (!is_logged_in()) {
 }
 
 $user = current_user();
-if (($user['role'] ?? '') !== 'organization') {
-    json_response(['success' => false, 'message' => 'Unauthorized. Only organizations can create courses.'], 403);
+$is_org = ($user['role'] ?? '') === 'organization';
+$is_teacher = ($user['role'] ?? '') === 'teacher';
+if (!$is_org && !$is_teacher) {
+    json_response(['success' => false, 'message' => 'Unauthorized. Only organizations or teachers can create courses.'], 403);
 }
 
 // ── Read Input ────────────────────────────────────────────────────────────
@@ -81,8 +83,10 @@ try {
         'description'      => $description,
         'imageUrl'         => $imageUrl,
         'status'           => $status,
-        'organizationId'   => $user['id'],
-        'organizationName' => $user['organization_name'] ?? $user['name'] ?? 'Platform',
+        'organizationId'   => $is_org ? $user['id'] : '',
+        'organizationName' => $is_org ? ($user['organization_name'] ?? $user['name'] ?? 'Platform') : '',
+        'teacherId'        => $is_teacher ? $user['id'] : '',
+        'teacherName'      => $is_teacher ? ($user['name'] ?? 'Instructor') : '',
         'createdAt'        => $now,
         'updatedAt'        => $now,
         'enrollment_count' => 0,

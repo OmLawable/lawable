@@ -394,8 +394,22 @@ function diffBg(string $diff): string {
     <li><a href="about.php">About</a></li>
     <li><a href="contact.php">Contact</a></li>
     <?php if ($isLoggedIn): ?>
-    <?php if (!$isAdmin): ?>
-    <li class="nav-profile-item"><a href="student/edit-profile.php" class="nav-profile" aria-label="Edit profile"><span aria-hidden="true">👤</span></a></li>
+    <?php 
+      $profileLink = '';
+      if (($user['role'] ?? '') === 'user') {
+          $profileLink = 'student/edit-profile.php';
+      } elseif (($user['role'] ?? '') === 'teacher') {
+          $profileLink = 'teacher/edit-profile.php';
+      } elseif (($user['role'] ?? '') === 'organization') {
+          $profileLink = 'organization/edit-profile.php';
+      }
+      if ($profileLink !== ''):
+    ?>
+    <li class="nav-profile-item">
+      <a href="<?= $profileLink ?>" class="nav-profile" aria-label="Edit profile">
+        <span aria-hidden="true">👤</span>
+      </a>
+    </li>
     <?php endif; ?>
     <li><a href="../api/logout.php" class="nav-cta">Log out</a></li>
     <?php else: ?>
@@ -509,9 +523,13 @@ function diffBg(string $diff): string {
           </div>
           <div class="course-footer-line">
             <span class="course-price"><?= $price > 0 ? '₹' . number_format($price) : '<span class="free-label">Free</span>' ?></span>
-            <span class="course-enroll-btn <?= $enrolled ? 'enrolled' : '' ?>" data-course-id="<?= e($course['__id']) ?>" onclick="<?= $isStudent ? "enrollCourse(this, '" . e($course['__id']) . "')" : ($isLoggedIn ? '' : "window.location='login.php'") ?>">
-              <?= $enrolled ? '✓ Enrolled' : ($isLoggedIn ? 'Enroll →' : 'Join →') ?>
-            </span>
+            <?php if ($enrolled): ?>
+              <a href="student/course-workspace.php?course_id=<?= e($course['__id']) ?>" class="course-enroll-btn enrolled" style="text-decoration:none;">Start Learning →</a>
+            <?php else: ?>
+              <span class="course-enroll-btn" data-course-id="<?= e($course['__id']) ?>" onclick="<?= $isStudent ? "enrollCourse(this, '" . e($course['__id']) . "')" : ($isLoggedIn ? '' : "window.location='login.php'") ?>">
+                <?= $isLoggedIn ? 'Enroll →' : 'Join →' ?>
+              </span>
+            <?php endif; ?>
           </div>
         </div>
       </div>

@@ -41,6 +41,7 @@ $enrollmentDoc = [
     'courseId'       => $course_id,
     'courseName'     => $course['title'] ?? '',
     'organizationId' => $course['organizationId'] ?? '',
+    'teacherId'      => $course['teacherId'] ?? '',
     'enrolledAt'     => $now,
     'completedAt'    => null
 ];

@@ -44,6 +44,7 @@ try {
     $collection = match ($role) {
         'user'         => 'students',
         'organization' => 'organizations',
+        'teacher'      => 'teachers',
         'admin'        => 'admins',
         default        => throw new RuntimeException('Invalid account type selected.'),
     };
@@ -77,6 +78,11 @@ try {
         }
         throw new RuntimeException('This account is inactive. Please contact support.');
     }
+
+    // ── Update last login timestamp in Firestore ─────────────────────────
+    $db->update($collection, $uid, [
+        'lastLogin' => FirestoreClient::now()
+    ]);
 
     // ── Write session (identical structure, ID is now firebase_uid string) ──
     $_SESSION['user'] = [

@@ -475,6 +475,7 @@ $turnstileSiteKey = get_turnstile_site_key();
           <label for="si-role">Account type</label>
           <select id="si-role" required>
             <option value="user">Student</option>
+            <option value="teacher">Teacher</option>
             <option value="organization">Organization</option>
             <option value="admin">Admin</option>
           </select>
@@ -521,6 +522,9 @@ $turnstileSiteKey = get_turnstile_site_key();
           <div class="radio-row">
             <label class="radio-option">
               <input type="radio" name="su-role" value="user" checked /> Student
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="su-role" value="teacher" /> Teacher
             </label>
             <label class="radio-option">
               <input type="radio" name="su-role" value="organization" /> Organization
@@ -859,7 +863,7 @@ $turnstileSiteKey = get_turnstile_site_key();
         validateEmail($('su-email'), role === 'organization'),
         validatePassword($('su-password')),
       ];
-      if (role === 'user') {
+      if (role === 'user' || role === 'teacher') {
         checks.push(validateReq($('su-name'), 'Full name is required'));
       } else {
         checks.push(validateReq($('su-org-name'), 'Organization name is required'));
@@ -873,9 +877,13 @@ $turnstileSiteKey = get_turnstile_site_key();
 
       const email    = $('su-email').value.trim();
       const password = $('su-password').value;
-      const endpoint = role === 'organization'
-        ? '../api/register_organization.php'
-        : '../api/register_user.php';
+      
+      let endpoint = '../api/register_user.php';
+      if (role === 'organization') {
+        endpoint = '../api/register_organization.php';
+      } else if (role === 'teacher') {
+        endpoint = '../api/register_teacher.php';
+      }
 
       const friendlyErrors = {
         'auth/email-already-in-use':   'This email address is already registered.',
@@ -891,7 +899,7 @@ $turnstileSiteKey = get_turnstile_site_key();
 
         // Step 2 — Send token + profile to PHP
         const bodyObj = { idToken, username: $('su-username').value.trim() };
-        if (role === 'user') {
+        if (role === 'user' || role === 'teacher') {
           bodyObj.name  = $('su-name').value.trim();
         } else {
           bodyObj.organization_name = $('su-org-name').value.trim();
