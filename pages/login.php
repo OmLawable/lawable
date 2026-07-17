@@ -3,12 +3,21 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/firestore.php';
 start_secure_session();
 
 // If already logged in, redirect to home
 if (is_logged_in()) {
     header('Location: dashboard.php');
     exit;
+}
+
+$db = get_firestore();
+$orgs = [];
+try {
+    $orgs = $db->query('organizations', [['status', 'EQUAL', 'active']], 100);
+} catch (Throwable $e) {
+    // Ignore error for now
 }
 
 $flash = get_flash();
@@ -540,6 +549,19 @@ $turnstileSiteKey = get_turnstile_site_key();
           </div>
         </div>
 
+        <div id="su-teacher-org-section" style="display:none; margin-top: 1rem;">
+          <div class="field">
+            <label for="su-teacher-org">Affiliated Organization *</label>
+            <select id="su-teacher-org" style="width: 100%; min-height: 44px; border-radius: 8px; border: 1px solid var(--border); padding: 0.5rem; background: var(--paper); color: var(--ink); font-family: var(--body);">
+              <option value="">Select Organization</option>
+              <?php foreach ($orgs as $org): ?>
+                <option value="<?= e($org['__id']) ?>"><?= e($org['organizationName'] ?? $org['contactPerson'] ?? '') ?> (<?= e($org['email'] ?? '') ?>)</option>
+              <?php endforeach; ?>
+            </select>
+            <div class="field-status"></div>
+          </div>
+        </div>
+
         <div id="su-org-section" style="display:none;">
           <div class="section-title">Organization details</div>
           <div class="field">
@@ -716,11 +738,15 @@ $turnstileSiteKey = get_turnstile_site_key();
     const roleRadios = qsa('input[name="su-role"]');
     const suUserSec = $('su-user-section');
     const suOrgSec = $('su-org-section');
+    const suTeacherOrgSec = $('su-teacher-org-section');
 
     function toggleSignupSections() {
       const role = qs('input[name="su-role"]:checked')?.value || 'user';
       suUserSec.style.display = role === 'organization' ? 'none' : 'block';
       suOrgSec.style.display = role === 'organization' ? 'block' : 'none';
+      if (suTeacherOrgSec) {
+        suTeacherOrgSec.style.display = role === 'teacher' ? 'block' : 'none';
+      }
     }
     roleRadios.forEach(r => r.addEventListener('change', toggleSignupSections));
     toggleSignupSections();
@@ -865,6 +891,9 @@ $turnstileSiteKey = get_turnstile_site_key();
       ];
       if (role === 'user' || role === 'teacher') {
         checks.push(validateReq($('su-name'), 'Full name is required'));
+        if (role === 'teacher') {
+          checks.push(validateReq($('su-teacher-org'), 'Affiliated organization is required'));
+        }
       } else {
         checks.push(validateReq($('su-org-name'), 'Organization name is required'));
         checks.push(validateReq($('su-contact'), 'Contact person is required'));
@@ -901,6 +930,9 @@ $turnstileSiteKey = get_turnstile_site_key();
         const bodyObj = { idToken, username: $('su-username').value.trim() };
         if (role === 'user' || role === 'teacher') {
           bodyObj.name  = $('su-name').value.trim();
+          if (role === 'teacher') {
+            bodyObj.organizationId = $('su-teacher-org').value.trim();
+          }
         } else {
           bodyObj.organization_name = $('su-org-name').value.trim();
           bodyObj.contact_person    = $('su-contact').value.trim();
@@ -931,4 +963,3 @@ $turnstileSiteKey = get_turnstile_site_key();
   </script>
 </body>
 </html>
-</write_to_file>

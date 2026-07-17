@@ -74,6 +74,7 @@ if (!$is_org) {
 $org_courses_count = 0;
 $org_total_students = 0;
 $org_recent_courses = [];
+$org_teachers_count = 0;
 
 if ($is_org || $is_teacher) {
     $filter_field = $is_teacher ? 'teacherId' : 'organizationId';
@@ -92,6 +93,19 @@ if ($is_org || $is_teacher) {
         });
         
         $org_recent_courses = array_slice($org_courses, 0, 5);
+    }
+
+    if ($is_org) {
+        try {
+            $org_teachers = $db->query('teachers', [
+                ['organizationId', 'EQUAL', $student_id]
+            ], 100);
+            if (!empty($org_teachers)) {
+                $org_teachers_count = count($org_teachers);
+            }
+        } catch (Throwable $e) {
+            // Ignore
+        }
     }
 }
 
@@ -1087,6 +1101,15 @@ if (!$is_org) {
         <div class="stat-card-label">Total Student Enrollments</div>
         <div class="stat-card-value"><?= number_format($org_total_students) ?></div>
       </div>
+      <?php if ($is_org): ?>
+      <div class="stat-card" onclick="window.location='organization/manage-teachers.php'" style="cursor:pointer; transition: transform 0.2s;">
+        <div class="stat-card-header">
+          <div class="stat-card-icon certificates">💼</div>
+        </div>
+        <div class="stat-card-label">Affiliated Instructors</div>
+        <div class="stat-card-value"><?= number_format($org_teachers_count) ?></div>
+      </div>
+      <?php endif; ?>
     </div>
 
     <!-- Action Shortcuts -->
@@ -1114,6 +1137,13 @@ if (!$is_org) {
         </div>
       </div>
       <?php if ($is_org): ?>
+      <div class="enrolled-card" onclick="window.location='organization/manage-teachers.php'" style="cursor:pointer; transition: transform 0.2s; padding:1.25rem;">
+        <div class="enrolled-thumb" style="background:#FAF2FA; font-size: 1.8rem; display:flex; align-items:center; justify-content:center;">💼</div>
+        <div class="enrolled-body" style="padding-top:0.75rem;">
+          <div class="enrolled-title" style="font-size:1rem; font-weight:600;">Manage Teachers</div>
+          <p style="font-size:0.78rem; color:var(--ink-soft); margin-top:0.25rem;">Approve, review, and manage your teaching staff.</p>
+        </div>
+      </div>
       <div class="enrolled-card" onclick="window.location='organization/edit-profile.php'" style="cursor:pointer; transition: transform 0.2s; padding:1.25rem;">
         <div class="enrolled-thumb" style="background:#DCFCE7; font-size: 1.8rem; display:flex; align-items:center; justify-content:center;">🏢</div>
         <div class="enrolled-body" style="padding-top:0.75rem;">

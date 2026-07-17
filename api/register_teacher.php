@@ -30,10 +30,11 @@ if (!is_array($payload)) {
 
 try {
     // ── 1. Extract fields ─────────────────────────────────────────────────
-    $idToken  = trim((string) ($payload['idToken']  ?? ''));
-    $name     = trim((string) ($payload['name']     ?? ''));
-    $username = trim((string) ($payload['username'] ?? ''));
-    $phone    = trim((string) ($payload['phone']    ?? ''));
+    $idToken        = trim((string) ($payload['idToken']        ?? ''));
+    $name           = trim((string) ($payload['name']           ?? ''));
+    $username       = trim((string) ($payload['username']       ?? ''));
+    $phone          = trim((string) ($payload['phone']          ?? ''));
+    $organizationId = trim((string) ($payload['organizationId'] ?? ''));
 
     if ($idToken === '') {
         throw new RuntimeException('Firebase ID token is missing.');
@@ -47,6 +48,9 @@ try {
     if (strlen($username) < 3 || !preg_match('/^[a-zA-Z0-9._-]+$/', $username)) {
         throw new RuntimeException('Username may only contain letters, numbers, dots, underscores, or hyphens (min 3 chars).');
     }
+    if ($organizationId === '') {
+        throw new RuntimeException('Affiliated organization is required.');
+    }
 
     // ── 2. Verify Firebase ID token ───────────────────────────────────────
     $firebaseUser = verify_firebase_token($idToken);
@@ -58,6 +62,12 @@ try {
     }
 
     $db = get_firestore();
+
+    // Verify Organization exists and is active
+    $org = $db->get('organizations', $organizationId);
+    if (!$org || ($org['status'] ?? '') !== 'active') {
+        throw new RuntimeException('Selected organization is invalid or inactive.');
+    }
 
     // ── 3. Check for duplicate username / email / firebase_uid ───────────
     $existingById = $db->get('teachers', $uid);
@@ -98,28 +108,30 @@ try {
     // ── 4. Insert teacher document into Firestore ────────────────────────
     $now = FirestoreClient::now();
     $teacherDoc = [
-        'name'           => $name,
-        'username'       => $username,
-        'email'          => $email,
-        'phone'          => $phone,
-        'status'         => 'active',
-        'bio'            => '',
-        'qualification'  => '',
-        'specialization' => '',
-        'experience'     => '',
-        'designation'    => '',
-        'headline'       => '',
-        'publicEmail'    => '',
-        'avatar'         => 'avatar1.png',
-        'dateOfBirth'    => '',
-        'gender'         => '',
-        'createdAt'      => $now,
-        'updatedAt'      => $now
+        'name'             => $name,
+        'username'         => $username,
+        'email'            => $email,
+        'phone'            => $phone,
+        'organizationId'   => $organizationId,
+        'organizationName' => $org['organizationName'] ?? '',
+        'status'           => 'pending',
+        'bio'              => '',
+        'qualification'    => '',
+        'specialization'   => '',
+        'experience'       => '',
+        'designation'      => '',
+        'headline'         => '',
+        'publicEmail'      => '',
+        'avatar'           => 'avatar1.png',
+        'dateOfBirth'      => '',
+        'gender'           => '',
+        'createdAt'        => $now,
+        'updatedAt'        => $now
     ];
 
     $db->set('teachers', $teacherDoc, $uid);
 
-    json_response(['success' => true, 'message' => 'Teacher account created. You can now log in.']);
+    json_response(['success' => true, 'message' => 'Teacher registration submitted. Your account is pending organization approval. You can log in once verified.']);
 
 } catch (RuntimeException $e) {
     json_response(['success' => false, 'message' => $e->getMessage()], 400);

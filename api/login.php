@@ -76,6 +76,9 @@ try {
         if ($collection === 'organizations') {
             throw new RuntimeException('Your organization account is pending admin approval. You will be notified once verified.');
         }
+        if ($collection === 'teachers') {
+            throw new RuntimeException('Your teacher account is pending organization approval. You will be notified once verified.');
+        }
         throw new RuntimeException('This account is inactive. Please contact support.');
     }
 
