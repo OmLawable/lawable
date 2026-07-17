@@ -421,16 +421,86 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     /* ─── Custom Multiselect Chips UI ──────────────── */
     .custom-multiselect { position: relative; width: 100%; }
-    .multiselect-chips-container { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; min-height: 46px; border: 2px solid transparent; border-radius: 12px; padding: 0.5rem 0.75rem; background: #F3F4F6; box-sizing: border-box; cursor: pointer; transition: border-color .2s, background .2s, box-shadow .2s; }
-    .multiselect-chips-container:focus-within { outline: none; border-color: #C9933A; background: white; box-shadow: 0 0 0 3px rgba(201,147,58,0.12); }
+    .multiselect-box {
+      display: flex;
+      flex-direction: column;
+      border: 2px solid transparent;
+      background: #F3F4F6;
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      min-height: 86px;
+      cursor: pointer;
+      box-sizing: border-box;
+      transition: border-color .2s, background .2s, box-shadow .2s;
+    }
+    .multiselect-box:focus-within {
+      outline: none;
+      border-color: #C9933A;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(201,147,58,0.12);
+    }
     
-    .multiselect-placeholder { color: #9CA3AF; font-size: 0.95rem; pointer-events: none; margin-left: 0.25rem; }
-    .multiselect-search { border: none; background: transparent; outline: none; font-family: 'Inter', sans-serif; font-size: 0.95rem; color: #0D1117; flex: 1; min-width: 60px; padding: 0.25rem 0; }
+    .multiselect-chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      width: 100%;
+    }
     
-    .multiselect-chip { display: inline-flex; align-items: center; gap: 0.35rem; background: #FAF7F2; border: 1px solid #E5E0D8; color: #A8732A; padding: 0.25rem 0.65rem; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; line-height: 1; transition: background 0.15s; }
-    .multiselect-chip:hover { background: #F5EFEB; }
-    .multiselect-chip-remove { border: none; background: transparent; cursor: pointer; font-size: 0.9rem; font-weight: bold; color: #8A857C; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 1; transition: color 0.15s; }
-    .multiselect-chip-remove:hover { color: #DC2626; }
+    .multiselect-search-row {
+      width: 100%;
+      margin-top: 0.55rem;
+    }
+    .multiselect-search-input {
+      width: 100% !important;
+      border: none !important;
+      background: transparent !important;
+      outline: none !important;
+      padding: 0 !important;
+      font-size: 0.95rem;
+      color: #0D1117;
+      font-family: 'Inter', sans-serif;
+      min-height: auto !important;
+      box-shadow: none !important;
+    }
+    .multiselect-search-input::placeholder {
+      color: #9CA3AF;
+    }
+    
+    .multiselect-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: #EBF2FC;
+      border: 1px solid #D0E1FD;
+      color: #1E40AF;
+      padding: 0.3rem 0.65rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      line-height: 1;
+      transition: background 0.15s;
+    }
+    .multiselect-chip:hover {
+      background: #DBE8FC;
+    }
+    .multiselect-chip-remove {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: #1E40AF;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+    .multiselect-chip-remove:hover {
+      color: #DC2626;
+    }
     
     .multiselect-dropdown { position: absolute; top: calc(100% + 4px); left: 0; width: 100%; max-height: 220px; overflow-y: auto; background: white; border: 1px solid #E5E0D8; border-radius: 12px; box-shadow: 0 10px 35px rgba(13,17,23,0.08); z-index: 100; display: none; padding: 0.5rem 0; box-sizing: border-box; }
     .multiselect-dropdown.active { display: block; }
@@ -622,9 +692,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <div class="profile-field profile-field-full">
                 <label>Areas of Interest (Max 5)</label>
                 <div class="custom-multiselect" id="multiselect-areas">
-                  <div class="multiselect-chips-container" onclick="focusSearch('areas')">
-                    <span class="multiselect-placeholder" id="placeholder-areas">Select areas of interest...</span>
-                    <input type="text" class="multiselect-search" id="search-areas" oninput="filterOptions('areas')" onfocus="showDropdown('areas')" onblur="hideDropdown('areas')" autocomplete="off" />
+                  <div class="multiselect-box" onclick="focusSearch('areas')">
+                    <div class="multiselect-chips-row" id="chips-areas">
+                      <!-- Chips will render here -->
+                    </div>
+                    <div class="multiselect-search-row">
+                      <input type="text" class="multiselect-search-input" id="search-areas" placeholder="Type to search areas of interest..." oninput="filterOptions('areas')" onfocus="showDropdown('areas')" onblur="hideDropdown('areas')" autocomplete="off" />
+                    </div>
                   </div>
                   <div class="multiselect-dropdown" id="dropdown-areas">
                     <?php
@@ -638,7 +712,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     foreach ($predefined_areas as $area):
                         $selected = in_array($area, $profile['areas_of_interest'] ?? [], true);
                     ?>
-                      <div class="multiselect-option <?= $selected ? 'selected' : '' ?>" data-value="<?= e($area) ?>" onclick="selectOption('areas', '<?= e($area) ?>')">
+                      <div class="multiselect-option <?= $selected ? 'selected' : '' ?>" data-value="<?= e($area) ?>" onmousedown="event.preventDefault(); selectOption('areas', '<?= e($area) ?>')">
                         <?= e($area) ?>
                       </div>
                     <?php endforeach; ?>
@@ -654,9 +728,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <div class="profile-field profile-field-full">
                 <label>Skills (Max 5)</label>
                 <div class="custom-multiselect" id="multiselect-skills">
-                  <div class="multiselect-chips-container" onclick="focusSearch('skills')">
-                    <span class="multiselect-placeholder" id="placeholder-skills">Select skills...</span>
-                    <input type="text" class="multiselect-search" id="search-skills" oninput="filterOptions('skills')" onfocus="showDropdown('skills')" onblur="hideDropdown('skills')" autocomplete="off" />
+                  <div class="multiselect-box" onclick="focusSearch('skills')">
+                    <div class="multiselect-chips-row" id="chips-skills">
+                      <!-- Chips will render here -->
+                    </div>
+                    <div class="multiselect-search-row">
+                      <input type="text" class="multiselect-search-input" id="search-skills" placeholder="Type to search skills..." oninput="filterOptions('skills')" onfocus="showDropdown('skills')" onblur="hideDropdown('skills')" autocomplete="off" />
+                    </div>
                   </div>
                   <div class="multiselect-dropdown" id="dropdown-skills">
                     <?php
@@ -670,7 +748,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     foreach ($predefined_skills as $skill):
                         $selected = in_array($skill, $profile['skills'] ?? [], true);
                     ?>
-                      <div class="multiselect-option <?= $selected ? 'selected' : '' ?>" data-value="<?= e($skill) ?>" onclick="selectOption('skills', '<?= e($skill) ?>')">
+                      <div class="multiselect-option <?= $selected ? 'selected' : '' ?>" data-value="<?= e($skill) ?>" onmousedown="event.preventDefault(); selectOption('skills', '<?= e($skill) ?>')">
                         <?= e($skill) ?>
                       </div>
                     <?php endforeach; ?>
@@ -866,7 +944,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       document.querySelectorAll('.multiselect-dropdown').forEach(d => {
         d.classList.remove('active');
       });
-      document.querySelectorAll('.multiselect-search').forEach(input => {
+      document.querySelectorAll('.multiselect-search-input').forEach(input => {
         input.value = '';
       });
       document.querySelectorAll('.multiselect-option').forEach(opt => {
@@ -890,24 +968,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 
   function renderChips(type) {
-    const container = document.querySelector('#multiselect-' + type + ' .multiselect-chips-container');
-    const searchInput = document.getElementById('search-' + type);
-    const placeholder = document.getElementById('placeholder-' + type);
+    const chipsRow = document.getElementById('chips-' + type);
     
-    // Remove existing chips
-    container.querySelectorAll('.multiselect-chip').forEach(c => c.remove());
+    // Clear existing chips
+    chipsRow.innerHTML = '';
 
-    if (multiselectData[type].length > 0) {
-      placeholder.style.display = 'none';
-    } else {
-      placeholder.style.display = 'block';
-    }
+    // Adjust bottom margin depending on chip count
+    chipsRow.style.marginBottom = multiselectData[type].length > 0 ? '0.75rem' : '0';
 
     multiselectData[type].forEach(value => {
       const chip = document.createElement('span');
       chip.className = 'multiselect-chip';
-      chip.innerHTML = e_js(value) + ` <button type="button" class="multiselect-chip-remove" onclick="removeOption('${type}', '${value.replace(/'/g, "\\'")}')">&times;</button>`;
-      container.insertBefore(chip, searchInput);
+      chip.innerHTML = e_js(value) + ` <button type="button" class="multiselect-chip-remove" onclick="event.stopPropagation(); removeOption('${type}', '${value.replace(/'/g, "\\'")}')">&times;</button>`;
+      chipsRow.appendChild(chip);
     });
 
     // Update hidden inputs for form submit
