@@ -281,73 +281,100 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <style>
-    body.profile-page { background: #FCF8F1 !important; color: #0D1117; font-family: 'Inter', sans-serif; }
+    :root {
+      --gold: #C9933A;
+      --gold-dk: #A8732A;
+      --gold-lt: #F4E4C3;
+      --cream: #FCF8F1;
+      --page-bg: #FCF8F1;
+      --white: #FFFFFF;
+      --ink: #0D1117;
+      --ink-mid: #374151;
+      --ink-soft: #6B7280;
+      --border: #E5E0D8;
+      --input-bg: #F3F4F6;
+    }
+    body.dark-theme {
+      --gold: #D8A84F;
+      --gold-dk: #F0C56D;
+      --gold-lt: #3A3022;
+      --cream: #111827;
+      --page-bg: #0F172A;
+      --white: #1E293B;
+      --ink: #F8FAFC;
+      --ink-mid: #CBD5E1;
+      --ink-soft: #94A3B8;
+      --border: #334155;
+      --input-bg: #0F172A;
+    }
+
+    body.profile-page { background: var(--page-bg) !important; color: var(--ink); font-family: 'Inter', sans-serif; }
     
     /* ─── Breadcrumbs & Header ──────────────── */
-    .profile-breadcrumbs { font-size: 0.85rem; color: #8A857C; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
-    .profile-breadcrumbs a { color: #8A857C; text-decoration: none; transition: color 0.2s; }
-    .profile-breadcrumbs a:hover { color: #A8732A; }
-    .profile-breadcrumbs span { color: #D5CFCE; }
+    .profile-breadcrumbs { font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+    .profile-breadcrumbs a { color: var(--ink-soft); text-decoration: none; transition: color 0.2s; }
+    .profile-breadcrumbs a:hover { color: var(--gold); }
+    .profile-breadcrumbs span { color: var(--border); }
     
-    .profile-header-title { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; color: #0D1117; margin-bottom: 1.75rem; }
+    .profile-header-title { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; color: var(--ink); margin-bottom: 1.75rem; }
 
     /* ─── Shell Layout ──────────────── */
     .profile-shell { width: min(1040px, 100%) !important; margin: 2rem 0 2rem 3.5rem !important; padding: 0 1.5rem 0 0; box-sizing: border-box; }
     .profile-layout { display: grid; grid-template-columns: 280px 1fr; gap: 2rem; align-items: start; }
     
     /* ─── Sidebar Cards ──────────────── */
-    .profile-sidebar { background: white; border: 1px solid #E5E0D8; border-radius: 24px; padding: 1.5rem; box-shadow: 0 4px 24px rgba(13,17,23,0.04); display: flex; flex-direction: column; gap: 0.5rem; }
+    .profile-sidebar { background: var(--white); border: 1px solid var(--border); border-radius: 24px; padding: 1.5rem; box-shadow: 0 4px 24px rgba(13,17,23,0.04); display: flex; flex-direction: column; gap: 0.5rem; }
     
-    .tab-btn { display: flex; align-items: center; gap: 0.75rem; width: 100%; border: none; background: transparent; padding: 0.95rem 1.25rem; font-size: 0.95rem; font-weight: 600; text-align: left; color: #4B5563; border-radius: 9999px; cursor: pointer; transition: background 0.2s, color 0.2s; }
-    .tab-btn:hover { background: #FAF7F2; color: #A8732A; }
-    .tab-btn.active { background: #A8732A; color: white; }
+    .tab-btn { display: flex; align-items: center; gap: 0.75rem; width: 100%; border: none; background: transparent; padding: 0.95rem 1.25rem; font-size: 0.95rem; font-weight: 600; text-align: left; color: var(--ink-mid); border-radius: 9999px; cursor: pointer; transition: background 0.2s, color 0.2s; }
+    .tab-btn:hover { background: var(--gold-lt); color: var(--gold-dk); }
+    .tab-btn.active { background: var(--gold); color: white; }
     
     /* ─── Content Panel ──────────────── */
-    .profile-content { background: white; border: 1px solid #E5E0D8; border-radius: 24px; padding: 2.25rem; box-shadow: 0 4px 24px rgba(13,17,23,0.04); min-height: 480px; width: 700px; box-sizing: border-box; }
+    .profile-content { background: var(--white); border: 1px solid var(--border); border-radius: 24px; padding: 2.25rem; box-shadow: 0 4px 24px rgba(13,17,23,0.04); min-height: 480px; width: 700px; box-sizing: border-box; }
     
     .profile-panel { display: none; }
     .profile-panel.active { display: block; }
     
-    .panel-title { font-family: 'Playfair Display', serif; font-size: 1.45rem; font-weight: 700; color: #0D1117; margin-bottom: 1.5rem; border-bottom: 1px solid rgba(229,224,216,0.5); padding-bottom: 0.75rem; }
+    .panel-title { font-family: 'Playfair Display', serif; font-size: 1.45rem; font-weight: 700; color: var(--ink); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; }
 
     /* ─── Forms and Fields ──────────────── */
     .profile-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1.5rem; row-gap: 2.25rem; }
     .profile-field { display: grid; gap: 0.5rem; position: relative; }
     .profile-field-full { grid-column: 1 / -1; }
     
-    .profile-field label { font-size: 0.9rem; font-weight: 600; color: #4B5563; }
-    .profile-field label .required-asterisk { color: #A8732A; font-weight: bold; margin-left: 0.2rem; }
+    .profile-field label { font-size: 0.9rem; font-weight: 600; color: var(--ink-mid); }
+    .profile-field label .required-asterisk { color: var(--gold); font-weight: bold; margin-left: 0.2rem; }
     
     /* Filled gray inputs with no visible borders */
-    .profile-field input, .profile-field textarea, .profile-field select { width: 100%; min-height: 46px; border: 2px solid transparent; border-radius: 12px; padding: 0.85rem 1.1rem; background: #F3F4F6; color: #0D1117; font-family: 'Inter', sans-serif; font-size: 0.95rem; box-sizing: border-box; transition: border-color .2s, background .2s, box-shadow .2s; }
+    .profile-field input, .profile-field textarea, .profile-field select { width: 100%; min-height: 46px; border: 2px solid transparent; border-radius: 12px; padding: 0.85rem 1.1rem; background: var(--input-bg); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 0.95rem; box-sizing: border-box; transition: border-color .2s, background .2s, box-shadow .2s; }
     .profile-field textarea { min-height: 120px; resize: vertical; }
     
-    .profile-field input:focus, .profile-field textarea:focus, .profile-field select:focus { outline: none; border-color: #C9933A; background: white; box-shadow: 0 0 0 3px rgba(201,147,58,0.12); }
-    .profile-field input[disabled], .profile-field input[readonly] { background: #E5E7EB; color: #6B7280; cursor: not-allowed; }
+    .profile-field input:focus, .profile-field textarea:focus, .profile-field select:focus { outline: none; border-color: var(--gold); background: var(--white); box-shadow: 0 0 0 3px rgba(201,147,58,0.12); }
+    .profile-field input[disabled], .profile-field input[readonly] { background: var(--border); color: var(--ink-soft); cursor: not-allowed; }
 
     /* ─── Avatar Picker Row ──────────────── */
     .avatar-picker-row { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem; }
-    .avatar-main-preview { width: 90px; height: 90px; border-radius: 50%; overflow: hidden; border: 3px solid #A8732A; background: #F3F4F6; flex-shrink: 0; box-shadow: 0 4px 12px rgba(168,115,42,0.15); }
+    .avatar-main-preview { width: 90px; height: 90px; border-radius: 50%; overflow: hidden; border: 3px solid var(--gold-dk); background: var(--input-bg); flex-shrink: 0; box-shadow: 0 4px 12px rgba(168,115,42,0.15); }
     .avatar-main-preview img { width: 100%; height: 100%; object-fit: cover; }
     
     .avatar-picker-actions { display: flex; align-items: center; gap: 0.75rem; }
     
     /* ─── Buttons (Pill-shaped) ──────────────── */
     .btn-pill { display: inline-flex; align-items: center; justify-content: center; padding: 0.75rem 1.75rem; font-size: 0.9rem; font-weight: 600; border-radius: 9999px; border: 1px solid transparent; cursor: pointer; transition: all 0.2s ease-in-out; text-decoration: none; min-width: 110px; }
-    .btn-pill-primary { background: #A8732A; color: white; }
-    .btn-pill-primary:hover { background: #8E5E1E; transform: translateY(-1px); }
+    .btn-pill-primary { background: var(--gold-dk); color: white; }
+    .btn-pill-primary:hover { background: var(--gold); transform: translateY(-1px); }
     
-    .btn-pill-outline { background: transparent; border-color: #E5E0D8; color: #4B5563; }
-    .btn-pill-outline:hover { background: #F9F8F6; border-color: #C9933A; color: #A8732A; }
+    .btn-pill-outline { background: transparent; border-color: var(--border); color: var(--ink-mid); }
+    .btn-pill-outline:hover { background: var(--page-bg); border-color: var(--gold); color: var(--gold-dk); }
     
-    .btn-pill-ghost { background: transparent; border-color: transparent; color: #6B7280; }
-    .btn-pill-ghost:hover { background: #F3F4F6; color: #374151; }
+    .btn-pill-ghost { background: transparent; border-color: transparent; color: var(--ink-soft); }
+    .btn-pill-ghost:hover { background: var(--input-bg); color: var(--ink-mid); }
     
     .profile-form-wrap { display: flex !important; justify-content: flex-start !important; width: 100% !important; }
-    .profile-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; border-top: 1px solid rgba(229,224,216,0.5); padding-top: 1.5rem; }
+    .profile-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
     
     /* ─── Avatar Grid Overlay/Wrapper ──────────────── */
-    .avatar-grid-dropdown { margin-top: 1rem; padding: 1rem; background: #FBF9F6; border: 1px solid #E5E0D8; border-radius: 16px; display: none; }
+    .avatar-grid-dropdown { margin-top: 1rem; padding: 1rem; background: var(--page-bg); border: 1px solid var(--border); border-radius: 16px; display: none; }
     .avatar-grid-dropdown.active { display: block; }
     .avatar-grid-title { font-size: 0.85rem; font-weight: 600; color: #6B7280; margin-bottom: 0.75rem; display: block; text-transform: uppercase; letter-spacing: 0.05em; }
     .avatar-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }

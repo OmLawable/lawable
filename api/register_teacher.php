@@ -3,14 +3,7 @@
 declare(strict_types=1);
 
 /**
- * api/register_user.php — Student signup with Firebase Authentication & Firestore.
- *
- * Flow:
- *   1. Browser JS creates the user in Firebase Auth (email + password).
- *   2. JS gets the Firebase ID token and sends it here along with
- *      name, username, and phone via AJAX (JSON body).
- *   3. This endpoint verifies the ID token, extracts the UID, and
- *      stores the profile in Firestore.
+ * api/register_teacher.php — Teacher signup with Firebase Authentication & Firestore.
  *
  * Accepts: JSON POST  { idToken, name, username, phone }
  * Returns: JSON       { success, message }
@@ -37,10 +30,11 @@ if (!is_array($payload)) {
 
 try {
     // ── 1. Extract fields ─────────────────────────────────────────────────
-    $idToken  = trim((string) ($payload['idToken']  ?? ''));
-    $name     = trim((string) ($payload['name']     ?? ''));
-    $username = trim((string) ($payload['username'] ?? ''));
-    $phone    = trim((string) ($payload['phone']    ?? ''));
+    $idToken        = trim((string) ($payload['idToken']        ?? ''));
+    $name           = trim((string) ($payload['name']           ?? ''));
+    $username       = trim((string) ($payload['username']       ?? ''));
+    $phone          = trim((string) ($payload['phone']          ?? ''));
+    $organizationId = trim((string) ($payload['organizationId'] ?? ''));
 
     if ($idToken === '') {
         throw new RuntimeException('Firebase ID token is missing.');
@@ -54,6 +48,9 @@ try {
     if (strlen($username) < 3 || !preg_match('/^[a-zA-Z0-9._-]+$/', $username)) {
         throw new RuntimeException('Username may only contain letters, numbers, dots, underscores, or hyphens (min 3 chars).');
     }
+    if ($organizationId === '') {
+        throw new RuntimeException('Affiliated organization is required.');
+    }
 
     // ── 2. Verify Firebase ID token ───────────────────────────────────────
     $firebaseUser = verify_firebase_token($idToken);
@@ -66,69 +63,75 @@ try {
 
     $db = get_firestore();
 
+    // Verify Organization exists and is active
+    $org = $db->get('organizations', $organizationId);
+    if (!$org || ($org['status'] ?? '') !== 'active') {
+        throw new RuntimeException('Selected organization is invalid or inactive.');
+    }
+
     // ── 3. Check for duplicate username / email / firebase_uid ───────────
-    $existingById = $db->get('students', $uid);
+    $existingById = $db->get('teachers', $uid);
     if ($existingById !== null) {
         throw new RuntimeException('An account already exists for this Firebase identity.');
     }
 
-    $existingByEmail = $db->query('students', [['email', 'EQUAL', $email]], 1);
+    // Check teachers
+    $existingByEmail = $db->query('teachers', [['email', 'EQUAL', $email]], 1);
     if (!empty($existingByEmail)) {
         throw new RuntimeException('An account already exists for that email.');
     }
-
-    $existingByUsername = $db->query('students', [['username', 'EQUAL', $username]], 1);
+    $existingByUsername = $db->query('teachers', [['username', 'EQUAL', $username]], 1);
     if (!empty($existingByUsername)) {
         throw new RuntimeException('An account already exists for that username.');
     }
 
-    // Also check organizations to make sure username/email is globally unique
+    // Check students
+    $existingStudentEmail = $db->query('students', [['email', 'EQUAL', $email]], 1);
+    if (!empty($existingStudentEmail)) {
+        throw new RuntimeException('An account already exists for that email.');
+    }
+    $existingStudentUsername = $db->query('students', [['username', 'EQUAL', $username]], 1);
+    if (!empty($existingStudentUsername)) {
+        throw new RuntimeException('An account already exists for that username.');
+    }
+
+    // Check organizations
     $existingOrgEmail = $db->query('organizations', [['email', 'EQUAL', $email]], 1);
     if (!empty($existingOrgEmail)) {
         throw new RuntimeException('An account already exists for that email.');
     }
-
     $existingOrgUsername = $db->query('organizations', [['username', 'EQUAL', $username]], 1);
     if (!empty($existingOrgUsername)) {
         throw new RuntimeException('An account already exists for that username.');
     }
 
-    // Also check teachers to make sure username/email is globally unique
-    $existingTeacherEmail = $db->query('teachers', [['email', 'EQUAL', $email]], 1);
-    if (!empty($existingTeacherEmail)) {
-        throw new RuntimeException('An account already exists for that email.');
-    }
-
-    $existingTeacherUsername = $db->query('teachers', [['username', 'EQUAL', $username]], 1);
-    if (!empty($existingTeacherUsername)) {
-        throw new RuntimeException('An account already exists for that username.');
-    }
-
-    // ── 4. Insert student document into Firestore ────────────────────────
+    // ── 4. Insert teacher document into Firestore ────────────────────────
     $now = FirestoreClient::now();
-    $studentDoc = [
-        'name'            => $name,
-        'username'        => $username,
-        'email'           => $email,
-        'phone'           => $phone,
-        'status'          => 'active',
-        'city'            => '',
-        'bio'             => '',
-        'dateOfBirth'     => '',
-        'institution'     => '',
-        'course'          => '',
-        'yearSemester'    => '',
-        'areasOfInterest' => '',
-        'resumeFile'      => '',
-        'linkedinUrl'     => '',
-        'skills'          => '',
-        'createdAt'       => $now,
-        'updatedAt'       => $now
+    $teacherDoc = [
+        'name'             => $name,
+        'username'         => $username,
+        'email'            => $email,
+        'phone'            => $phone,
+        'organizationId'   => $organizationId,
+        'organizationName' => $org['organizationName'] ?? '',
+        'status'           => 'pending',
+        'bio'              => '',
+        'qualification'    => '',
+        'specialization'   => '',
+        'experience'       => '',
+        'designation'      => '',
+        'headline'         => '',
+        'publicEmail'      => '',
+        'avatar'           => 'avatar1.png',
+        'dateOfBirth'      => '',
+        'gender'           => '',
+        'createdAt'        => $now,
+        'updatedAt'        => $now
     ];
 
-    $db->set('students', $studentDoc, $uid);
+    $db->set('teachers', $teacherDoc, $uid);
 
-    json_response(['success' => true, 'message' => 'Student account created. You can now log in.']);
+    json_response(['success' => true, 'message' => 'Teacher registration submitted. Your account is pending organization approval. You can log in once verified.']);
 
 } catch (RuntimeException $e) {
     json_response(['success' => false, 'message' => $e->getMessage()], 400);

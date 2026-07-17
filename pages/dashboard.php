@@ -16,6 +16,7 @@ if (($user['role'] ?? '') === 'admin') {
 
 // Organization → show org-specific view (placeholder for now)
 $is_org = ($user['role'] ?? '') === 'organization';
+$is_teacher = ($user['role'] ?? '') === 'teacher';
 
 $db = get_firestore();
 $student_id = (string) $user['id'];
@@ -23,6 +24,37 @@ $student_id = (string) $user['id'];
 /* ── Fetch Dashboard Data ────────────────────────────────── */
 $profile_pct = 0;
 $nudge_dismissed = false;
+$student_messages = [];
+
+if (!$is_org && !$is_teacher) {
+    // Handle Mark Message Read POST
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_msg_read'])) {
+        try {
+            verify_csrf_token($_POST['csrf_token'] ?? '');
+            $msgId = trim((string) ($_POST['message_id'] ?? ''));
+            if ($msgId !== '') {
+                $msgDoc = $db->get('messages', $msgId);
+                if ($msgDoc && ($msgDoc['receiverId'] ?? '') === $student_id) {
+                    $msgDoc['isRead'] = true;
+                    $db->set('messages', $msgDoc, $msgId);
+                }
+            }
+            header('Location: dashboard.php');
+            exit();
+        } catch (Throwable $e) {
+            // silent catch
+        }
+    }
+
+    // Fetch messages
+    $all_msg = $db->query('messages', [['receiverId', 'EQUAL', $student_id]], 100);
+    if (!empty($all_msg)) {
+        usort($all_msg, function($a, $b) {
+            return strcmp($b['createdAt'] ?? '', $a['createdAt'] ?? '');
+        });
+        $student_messages = $all_msg;
+    }
+}
 
 if (!$is_org) {
     // ─ 1. Profile completion ─
@@ -42,10 +74,12 @@ if (!$is_org) {
 $org_courses_count = 0;
 $org_total_students = 0;
 $org_recent_courses = [];
+$org_teachers_count = 0;
 
-if ($is_org) {
+if ($is_org || $is_teacher) {
+    $filter_field = $is_teacher ? 'teacherId' : 'organizationId';
     $org_courses = $db->query('courses', [
-        ['organizationId', 'EQUAL', $student_id]
+        [$filter_field, 'EQUAL', $student_id]
     ], 100);
 
     if (!empty($org_courses)) {
@@ -59,6 +93,19 @@ if ($is_org) {
         });
         
         $org_recent_courses = array_slice($org_courses, 0, 5);
+    }
+
+    if ($is_org) {
+        try {
+            $org_teachers = $db->query('teachers', [
+                ['organizationId', 'EQUAL', $student_id]
+            ], 100);
+            if (!empty($org_teachers)) {
+                $org_teachers_count = count($org_teachers);
+            }
+        } catch (Throwable $e) {
+            // Ignore
+        }
     }
 }
 
@@ -946,6 +993,11 @@ if (!$is_org) {
       cursor: pointer;
     }
     .profile-nav-indicator:hover { text-decoration: underline; }
+    .btn-pill { display: inline-flex; align-items: center; justify-content: center; padding: 0.75rem 1.75rem; font-size: 0.9rem; font-weight: 600; border-radius: 9999px; border: 1px solid transparent; cursor: pointer; transition: all 0.2s ease-in-out; text-decoration: none; min-width: 110px; }
+    .btn-pill-primary { background: #A8732A; color: white; }
+    .btn-pill-primary:hover { background: #8E5E1E; transform: translateY(-1px); }
+    .btn-pill-outline { background: transparent; border-color: #E5E0D8; color: #4B5563; }
+    .btn-pill-outline:hover { background: #F9F8F6; border-color: #C9933A; color: #A8732A; }
   </style>
 </head>
 <body>
@@ -961,9 +1013,19 @@ if (!$is_org) {
     <li><a href="courses.php">Courses</a></li>
     <li><a href="about.php">About</a></li>
     <li><a href="contact.php">Contact</a></li>
-    <?php if (!$is_org): ?>
+    <?php 
+      $profileLink = '';
+      if (($user['role'] ?? '') === 'user') {
+          $profileLink = 'student/edit-profile.php';
+      } elseif (($user['role'] ?? '') === 'teacher') {
+          $profileLink = 'teacher/edit-profile.php';
+      } elseif (($user['role'] ?? '') === 'organization') {
+          $profileLink = 'organization/edit-profile.php';
+      }
+      if ($profileLink !== ''):
+    ?>
     <li class="nav-profile-item">
-      <a href="student/edit-profile.php" class="nav-profile" aria-label="Edit profile">
+      <a href="<?= $profileLink ?>" class="nav-profile" aria-label="Edit profile">
         <span aria-hidden="true">👤</span>
       </a>
     </li>
@@ -999,6 +1061,7 @@ if (!$is_org) {
 <!-- ─── DASHBOARD PAGE ────────────────────────────────────────── -->
 <div class="dashboard-page">
 
+  <?php if (!$is_org && !$is_teacher): ?>
   <div class="dash-header">
     <div class="dash-header-left">
       <h1>Welcome back, <?= e(explode(' ', $user['name'] ?? 'Student')[0]) ?> 👋</h1>
@@ -1008,14 +1071,17 @@ if (!$is_org) {
       ✏️ Edit profile
     </span>
   </div>
+  <?php endif; ?>
 
   <div class="dash-content">
 
-<?php if ($is_org): /* ─── ORGANIZATION VIEW ─── */ ?>
+<?php if ($is_org || $is_teacher): /* ─── ORGANIZATION / TEACHER VIEW ─── */ ?>
     <div class="dash-header" style="margin-bottom: 2rem;">
       <div class="dash-header-left">
-        <h1>Welcome back, <?= e($user['organization_name'] ?? $user['name']) ?> 🏛</h1>
-        <p style="color:var(--ink-soft);font-size:0.95rem;margin-top:0.3rem;">Here is your organization's course catalog overview.</p>
+        <h1>Welcome back, <?= e($is_teacher ? $user['name'] : ($user['organization_name'] ?? $user['name'])) ?> <?= $is_teacher ? '🎓' : '🏛' ?></h1>
+        <p style="color:var(--ink-soft);font-size:0.95rem;margin-top:0.3rem;">
+          Here is your <?= $is_teacher ? 'instructor' : "organization's" ?> course catalog overview.
+        </p>
       </div>
     </div>
 
@@ -1028,13 +1094,22 @@ if (!$is_org) {
         <div class="stat-card-label">Courses Created</div>
         <div class="stat-card-value"><?= number_format($org_courses_count) ?></div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" onclick="window.location='organization/enrolled-students.php'" style="cursor:pointer; transition: transform 0.2s;">
         <div class="stat-card-header">
           <div class="stat-card-icon hours">🎓</div>
         </div>
         <div class="stat-card-label">Total Student Enrollments</div>
         <div class="stat-card-value"><?= number_format($org_total_students) ?></div>
       </div>
+      <?php if ($is_org): ?>
+      <div class="stat-card" onclick="window.location='organization/manage-teachers.php'" style="cursor:pointer; transition: transform 0.2s;">
+        <div class="stat-card-header">
+          <div class="stat-card-icon certificates">💼</div>
+        </div>
+        <div class="stat-card-label">Affiliated Instructors</div>
+        <div class="stat-card-value"><?= number_format($org_teachers_count) ?></div>
+      </div>
+      <?php endif; ?>
     </div>
 
     <!-- Action Shortcuts -->
@@ -1054,6 +1129,21 @@ if (!$is_org) {
           <p style="font-size:0.78rem; color:var(--ink-soft); margin-top:0.25rem;">View status, enrollments, and edit your courses.</p>
         </div>
       </div>
+      <div class="enrolled-card" onclick="window.location='organization/enrolled-students.php'" style="cursor:pointer; transition: transform 0.2s; padding:1.25rem;">
+        <div class="enrolled-thumb" style="background:#FAF7F2; font-size: 1.8rem; display:flex; align-items:center; justify-content:center;">👨‍🎓</div>
+        <div class="enrolled-body" style="padding-top:0.75rem;">
+          <div class="enrolled-title" style="font-size:1rem; font-weight:600;">Enrolled Students</div>
+          <p style="font-size:0.78rem; color:var(--ink-soft); margin-top:0.25rem;">View students details and send feedback messages.</p>
+        </div>
+      </div>
+      <?php if ($is_org): ?>
+      <div class="enrolled-card" onclick="window.location='organization/manage-teachers.php'" style="cursor:pointer; transition: transform 0.2s; padding:1.25rem;">
+        <div class="enrolled-thumb" style="background:#FAF2FA; font-size: 1.8rem; display:flex; align-items:center; justify-content:center;">💼</div>
+        <div class="enrolled-body" style="padding-top:0.75rem;">
+          <div class="enrolled-title" style="font-size:1rem; font-weight:600;">Manage Teachers</div>
+          <p style="font-size:0.78rem; color:var(--ink-soft); margin-top:0.25rem;">Approve, review, and manage your teaching staff.</p>
+        </div>
+      </div>
       <div class="enrolled-card" onclick="window.location='organization/edit-profile.php'" style="cursor:pointer; transition: transform 0.2s; padding:1.25rem;">
         <div class="enrolled-thumb" style="background:#DCFCE7; font-size: 1.8rem; display:flex; align-items:center; justify-content:center;">🏢</div>
         <div class="enrolled-body" style="padding-top:0.75rem;">
@@ -1061,6 +1151,7 @@ if (!$is_org) {
           <p style="font-size:0.78rem; color:var(--ink-soft); margin-top:0.25rem;">Update contact info and official brand details.</p>
         </div>
       </div>
+      <?php endif; ?>
     </div>
 
     <!-- Recent Courses Table -->
@@ -1193,6 +1284,42 @@ if (!$is_org) {
       </div>
     </div>
 
+    <?php /* ── Instructor Messages & Feedback Inbox ── */ ?>
+    <?php if (!empty($student_messages)): ?>
+    <div class="section-row" style="margin-top: 2rem;">
+      <h2>📩 Instructor Feedback & Messages</h2>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:1rem; margin-bottom:2rem;">
+      <?php foreach ($student_messages as $msg): 
+          $isMsgRead = (bool) ($msg['isRead'] ?? false);
+      ?>
+        <div style="background:var(--white); border:1px solid <?= $isMsgRead ? 'var(--border)' : 'var(--gold)' ?>; border-radius:16px; padding:1.25rem; box-shadow:var(--shadow); display:flex; justify-content:space-between; align-items:start; flex-wrap:wrap; gap:1rem; position:relative;">
+          <div style="flex:1;">
+            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+              <span style="font-weight:700; color:var(--ink); font-size:0.95rem;"><?= e($msg['senderName']) ?></span>
+              <span style="font-size:0.75rem; background:var(--gold-lt); color:var(--ink); padding:0.15rem 0.5rem; border-radius:4px; font-weight:600;">Course: <?= e($msg['courseTitle']) ?></span>
+              <?php if (!$isMsgRead): ?>
+                <span style="font-size:0.72rem; background:#DCFCE7; color:#15803D; padding:0.15rem 0.5rem; border-radius:4px; font-weight:700;">NEW</span>
+              <?php endif; ?>
+            </div>
+            <p style="font-size:0.88rem; color:var(--ink-mid); margin-top:0.5rem; line-height:1.5; white-space:pre-line;"><?= e($msg['messageText']) ?></p>
+            <div style="font-size:0.75rem; color:var(--ink-soft); margin-top:0.5rem;">
+              Received <?= date('M j, Y • g:i A', strtotime($msg['createdAt'])) ?>
+            </div>
+          </div>
+          <?php if (!$isMsgRead): ?>
+            <form method="POST" action="dashboard.php">
+              <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>" />
+              <input type="hidden" name="mark_msg_read" value="1" />
+              <input type="hidden" name="message_id" value="<?= e($msg['__id']) ?>" />
+              <button type="submit" class="btn-pill btn-pill-outline" style="padding:0.35rem 0.75rem; font-size:0.75rem; min-width:auto;">Mark as Read</button>
+            </form>
+          <?php endif; ?>
+        </div>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+
     <?php /* ── Continue Learning ── */ ?>
     <?php if ($last_course): ?>
     <div class="section-row">
@@ -1245,7 +1372,7 @@ if (!$is_org) {
         </div>
         <div class="continue-progress-text"><?= round((float) $last_course['progress_percentage']) ?>% complete</div>
       </div>
-      <a href="courses.php?course_id=<?= e($last_course['course_id']) ?>" class="continue-btn">Continue →</a>
+      <a href="student/course-workspace.php?course_id=<?= e($last_course['course_id']) ?>" class="continue-btn">Continue →</a>
     </div>
     <?php elseif (empty($enrolled_courses)): ?>
     <div class="empty-state">
@@ -1309,7 +1436,7 @@ if (!$is_org) {
               <?= (float) $ec['price'] > 0 ? '₹' . number_format((float) $ec['price']) : '<span class="free-label">Free</span>' ?>
             </span>
             <?php if ((float) $ec['progress_percentage'] < 100): ?>
-            <a href="courses.php?course_id=<?= e($ec['id']) ?>" class="enrolled-continue">Continue →</a>
+            <a href="student/course-workspace.php?course_id=<?= e($ec['id']) ?>" class="enrolled-continue">Continue →</a>
             <?php else: ?>
             <span style="font-size:0.72rem;color:var(--green);font-weight:600;">✓ Completed</span>
             <?php endif; ?>

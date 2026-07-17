@@ -99,6 +99,17 @@ try {
         throw new RuntimeException('An account already exists for that username.');
     }
 
+    // Also check teachers to make sure username/email is globally unique
+    $existingTeacherEmail = $db->query('teachers', [['email', 'EQUAL', $email]], 1);
+    if (!empty($existingTeacherEmail)) {
+        throw new RuntimeException('An account already exists for that email.');
+    }
+
+    $existingTeacherUsername = $db->query('teachers', [['username', 'EQUAL', $username]], 1);
+    if (!empty($existingTeacherUsername)) {
+        throw new RuntimeException('An account already exists for that username.');
+    }
+
     // ── 4. Insert organization document into Firestore ─────────────────────
     $now = FirestoreClient::now();
     $orgDoc = [
