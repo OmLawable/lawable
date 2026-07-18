@@ -63,10 +63,18 @@ try {
 
     $db = get_firestore();
 
-    // Verify Organization exists and is active
-    $org = $db->get('organizations', $organizationId);
-    if (!$org || ($org['status'] ?? '') !== 'active') {
-        throw new RuntimeException('Selected organization is invalid or inactive.');
+    $status = 'pending';
+    $orgName = '';
+    if ($organizationId === 'none' || $organizationId === '') {
+        $organizationId = '';
+        $status = 'active';
+    } else {
+        // Verify Organization exists and is active
+        $org = $db->get('organizations', $organizationId);
+        if (!$org || ($org['status'] ?? '') !== 'active') {
+            throw new RuntimeException('Selected organization is invalid or inactive.');
+        }
+        $orgName = $org['organizationName'] ?? '';
     }
 
     // ── 3. Check for duplicate username / email / firebase_uid ───────────
@@ -113,8 +121,8 @@ try {
         'email'            => $email,
         'phone'            => $phone,
         'organizationId'   => $organizationId,
-        'organizationName' => $org['organizationName'] ?? '',
-        'status'           => 'pending',
+        'organizationName' => $orgName,
+        'status'           => $status,
         'bio'              => '',
         'qualification'    => '',
         'specialization'   => '',
@@ -131,7 +139,11 @@ try {
 
     $db->set('teachers', $teacherDoc, $uid);
 
-    json_response(['success' => true, 'message' => 'Teacher registration submitted. Your account is pending organization approval. You can log in once verified.']);
+    if ($status === 'active') {
+        json_response(['success' => true, 'message' => 'Teacher account created. You can now log in.']);
+    } else {
+        json_response(['success' => true, 'message' => 'Teacher registration submitted. Your account is pending organization approval. You can log in once verified.']);
+    }
 
 } catch (RuntimeException $e) {
     json_response(['success' => false, 'message' => $e->getMessage()], 400);

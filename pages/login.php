@@ -554,6 +554,7 @@ $turnstileSiteKey = get_turnstile_site_key();
             <label for="su-teacher-org">Affiliated Organization *</label>
             <select id="su-teacher-org" style="width: 100%; min-height: 44px; border-radius: 8px; border: 1px solid var(--border); padding: 0.5rem; background: var(--paper); color: var(--ink); font-family: var(--body);">
               <option value="">Select Organization</option>
+              <option value="none">Independent (No Affiliation)</option>
               <?php foreach ($orgs as $org): ?>
                 <option value="<?= e($org['__id']) ?>"><?= e($org['organizationName'] ?? $org['contactPerson'] ?? '') ?> (<?= e($org['email'] ?? '') ?>)</option>
               <?php endforeach; ?>
