@@ -755,6 +755,7 @@ if (!empty($logDocs)) {
     <li><a href="users.php">Users</a></li>
     <li><a href="courses.php">Courses</a></li>
     <li><a href="verifications.php">Verifications</a></li>
+    <li><a href="inquiries.php">Inquiries</a></li>
     <li>
       <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
         <span class="theme-toggle-icon" aria-hidden="true">D</span>
@@ -772,6 +773,7 @@ if (!empty($logDocs)) {
   <a href="users.php">Users</a>
   <a href="courses.php">Courses</a>
   <a href="verifications.php">Verifications</a>
+  <a href="inquiries.php">Inquiries</a>
   <button class="theme-toggle drawer-theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" aria-pressed="false">
     <span class="theme-toggle-icon" aria-hidden="true">D</span>
     <span class="theme-toggle-text">Dark theme</span>
