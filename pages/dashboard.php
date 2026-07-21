@@ -25,8 +25,9 @@ $student_id = (string) $user['id'];
 $profile_pct = 0;
 $nudge_dismissed = false;
 $student_messages = [];
+$teacher_messages = [];
 
-if (!$is_org && !$is_teacher) {
+if (!$is_org) {
     // Handle Mark Message Read POST
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_msg_read'])) {
         try {
@@ -52,7 +53,11 @@ if (!$is_org && !$is_teacher) {
         usort($all_msg, function($a, $b) {
             return strcmp($b['createdAt'] ?? '', $a['createdAt'] ?? '');
         });
-        $student_messages = $all_msg;
+        if ($is_teacher) {
+            $teacher_messages = $all_msg;
+        } else {
+            $student_messages = $all_msg;
+        }
     }
 }
 
@@ -285,6 +290,65 @@ $recent_enrollments = [];
 if (!$is_org) {
     // Already sorted by enrolled_at/last_accessed_at, slice top 2
     $recent_enrollments = array_slice($enrolled_courses, 0, 2);
+}
+
+// ─ 9. Webinars ─
+$org_webinars = [];
+$upcoming_webinars = [];
+$teacher_org_id = '';
+
+if ($is_teacher) {
+    try {
+        $teacherDoc = $db->get('teachers', $student_id);
+        if ($teacherDoc) {
+            $teacher_org_id = $teacherDoc['organizationId'] ?? '';
+        }
+    } catch (Throwable $e) {
+        // Ignore
+    }
+}
+
+if ($is_org || ($is_teacher && $teacher_org_id !== '')) {
+    try {
+        $targetOrgId = $is_org ? $student_id : $teacher_org_id;
+        $org_webinars = $db->query('webinars', [
+            ['organizationId', 'EQUAL', $targetOrgId]
+        ], 100);
+        
+        // If teacher, filter to show only published webinars
+        if ($is_teacher && !empty($org_webinars)) {
+            $org_webinars = array_filter($org_webinars, function($w) {
+                return ($w['status'] ?? 'draft') === 'published';
+            });
+        }
+
+        if (!empty($org_webinars)) {
+            usort($org_webinars, function($a, $b) {
+                return strcmp($a['dateTime'] ?? '', $b['dateTime'] ?? '');
+            });
+        }
+    } catch (Throwable $e) {
+        // Ignore
+    }
+}
+
+if (!$is_org && !$is_teacher) {
+    try {
+        $all_published_webinars = $db->query('webinars', [
+            ['status', 'EQUAL', 'published']
+        ], 100);
+        if (!empty($all_published_webinars)) {
+            $upcoming_webinars = array_filter($all_published_webinars, function($w) {
+                $webinarTime = strtotime($w['dateTime'] ?? '');
+                return $webinarTime > (time() - 7200); // Only show upcoming or recently started (last 2h)
+            });
+            usort($upcoming_webinars, function($a, $b) {
+                return strcmp($a['dateTime'] ?? '', $b['dateTime'] ?? '');
+            });
+        }
+    } catch (Throwable $e) {
+        // Ignore
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -1112,6 +1176,40 @@ if (!$is_org) {
       <?php endif; ?>
     </div>
 
+    <!-- Teacher Notifications -->
+    <?php if ($is_teacher && !empty($teacher_messages)): ?>
+    <h3 style="margin-bottom:1rem;font-size:1.1rem;color:var(--ink);">📩 Notifications & Organization Broadcasts</h3>
+    <div style="display:flex; flex-direction:column; gap:1rem; margin-bottom:2.5rem;">
+      <?php foreach ($teacher_messages as $msg): 
+          $isMsgRead = (bool) ($msg['isRead'] ?? false);
+      ?>
+        <div style="background:var(--white); border:1px solid <?= $isMsgRead ? 'var(--border)' : 'var(--gold)' ?>; border-radius:16px; padding:1.25rem; box-shadow:var(--shadow); display:flex; justify-content:space-between; align-items:start; flex-wrap:wrap; gap:1rem;">
+          <div style="flex:1;">
+            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+              <span style="font-weight:700; color:var(--ink); font-size:0.95rem;"><?= e($msg['senderName']) ?></span>
+              <span style="font-size:0.75rem; background:var(--gold-lt); color:var(--ink); padding:0.15rem 0.5rem; border-radius:4px; font-weight:600;">Broadcast</span>
+              <?php if (!$isMsgRead): ?>
+                <span style="font-size:0.72rem; background:#DCFCE7; color:#15803D; padding:0.15rem 0.5rem; border-radius:4px; font-weight:700;">NEW</span>
+              <?php endif; ?>
+            </div>
+            <p style="font-size:0.88rem; color:var(--ink-mid); margin-top:0.5rem; line-height:1.5; white-space:pre-line;"><?= e($msg['messageText']) ?></p>
+            <div style="font-size:0.75rem; color:var(--ink-soft); margin-top:0.5rem;">
+              Received <?= date('d-m-Y • h:i A', strtotime($msg['createdAt'])) ?>
+            </div>
+          </div>
+          <?php if (!$isMsgRead): ?>
+            <form method="POST" action="dashboard.php" style="margin:0;">
+              <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>" />
+              <input type="hidden" name="mark_msg_read" value="1" />
+              <input type="hidden" name="message_id" value="<?= e($msg['__id']) ?>" />
+              <button type="submit" class="btn-pill btn-pill-outline" style="padding:0.35rem 0.75rem; font-size:0.75rem; min-width:auto;">Mark as Read</button>
+            </form>
+          <?php endif; ?>
+        </div>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+
     <!-- Action Shortcuts -->
     <h3 style="margin-bottom:1rem;font-size:1.1rem;color:var(--ink);">⚡ Quick Actions</h3>
     <div class="enrolled-grid" style="margin-bottom: 2.5rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
@@ -1152,7 +1250,81 @@ if (!$is_org) {
         </div>
       </div>
       <?php endif; ?>
+      <?php if ($is_org || ($is_teacher && $teacher_org_id !== '')): ?>
+      <div class="enrolled-card" onclick="window.location='organization/manage-webinars.php'" style="cursor:pointer; transition: transform 0.2s; padding:1.25rem;">
+        <div class="enrolled-thumb" style="background:#FFF9DB; font-size: 1.8rem; display:flex; align-items:center; justify-content:center;">🎙️</div>
+        <div class="enrolled-body" style="padding-top:0.75rem;">
+          <div class="enrolled-title" style="font-size:1rem; font-weight:600;">Manage Webinars</div>
+          <p style="font-size:0.78rem; color:var(--ink-soft); margin-top:0.25rem;">Schedule and host live Google Meet webinars.</p>
+        </div>
+      </div>
+      <?php endif; ?>
     </div>
+
+    <!-- Scheduled Webinars -->
+    <?php if ($is_org || ($is_teacher && $teacher_org_id !== '')): ?>
+    <div class="section-row" style="margin-top: 2rem;">
+      <h2>📅 Scheduled Webinars</h2>
+      <?php if (!empty($org_webinars) && $is_org): ?>
+        <a href="organization/manage-webinars.php">Manage Webinars →</a>
+      <?php endif; ?>
+    </div>
+
+    <div class="manage-table-card" style="background:var(--white); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); overflow:hidden; margin-bottom: 2rem;">
+      <div style="overflow-x:auto;">
+        <?php if (empty($org_webinars)): ?>
+          <div style="text-align:center; padding:3rem; color:var(--ink-soft);">
+            <div style="font-size:2.5rem; margin-bottom:0.75rem;">🎙️</div>
+            <h3>No webinars scheduled yet</h3>
+            <?php if ($is_org): ?>
+              <p style="font-size:0.85rem; margin-top:0.3rem; margin-bottom:1.25rem;">Schedule a live video webinar to interact with your students.</p>
+              <a href="organization/create-webinar.php" class="btn-primary" style="text-decoration:none; display:inline-flex;">+ Schedule Webinar</a>
+            <?php else: ?>
+              <p style="font-size:0.85rem; margin-top:0.3rem;">There are no webinars scheduled by your organization at this time.</p>
+            <?php endif; ?>
+          </div>
+        <?php else: ?>
+          <table style="width:100%; border-collapse:collapse; font-size:0.88rem; text-align:left;">
+            <thead>
+              <tr style="background:var(--page-bg); border-bottom:1px solid var(--border);">
+                <th style="padding:0.85rem 1.25rem; font-size:0.72rem; color:var(--ink-soft); font-weight:600; text-transform:uppercase;">Webinar</th>
+                <th style="padding:0.85rem 1.25rem; font-size:0.72rem; color:var(--ink-soft); font-weight:600; text-transform:uppercase;">Date & Time</th>
+                <th style="padding:0.85rem 1.25rem; font-size:0.72rem; color:var(--ink-soft); font-weight:600; text-transform:uppercase;">Meet Link</th>
+                <th style="padding:0.85rem 1.25rem; font-size:0.72rem; color:var(--ink-soft); font-weight:600; text-transform:uppercase;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach (array_slice($org_webinars, 0, 5) as $w): 
+                $statusText = $w['status'] ?? 'draft';
+                $statusClass = $statusText === 'published' ? 'background:#DCFCE7;color:#15803D;' : 'background:#F3F4F6;color:#4B5563;';
+              ?>
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:0.85rem 1.25rem; font-weight:600; display:flex; align-items:center; gap:0.75rem;">
+                    <span style="font-size:1.5rem;">📹</span>
+                    <div>
+                      <div><?= e($w['title']) ?></div>
+                      <div style="font-size:0.75rem; color:var(--ink-soft); font-weight:normal;"><?= e(substr($w['description'], 0, 80)) ?><?= strlen($w['description']) > 80 ? '...' : '' ?></div>
+                    </div>
+                  </td>
+                  <td style="padding:0.85rem 1.25rem; color:var(--ink-mid);"><?= date('d-m-Y • h:i A', strtotime($w['dateTime'])) ?></td>
+                  <td style="padding:0.85rem 1.25rem;">
+                    <a href="<?= e($w['meetLink']) ?>" target="_blank" rel="noopener noreferrer" style="color:var(--gold); text-decoration:none; font-weight:500;">
+                      Join Meet
+                    </a>
+                  </td>
+                  <td style="padding:0.85rem 1.25rem;">
+                    <span style="display:inline-flex; align-items:center; padding:0.2rem 0.5rem; border-radius:50px; font-size:0.7rem; font-weight:600; text-transform:uppercase; <?= $statusClass ?>">
+                      <?= e($statusText) ?>
+                    </span>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        <?php endif; ?>
+      </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Recent Courses Table -->
     <div class="section-row">
@@ -1440,6 +1612,41 @@ if (!$is_org) {
             <?php else: ?>
             <span style="font-size:0.72rem;color:var(--green);font-weight:600;">✓ Completed</span>
             <?php endif; ?>
+          </div>
+        </div>
+      </div>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+
+    <?php /* ── Upcoming Webinars ── */ ?>
+    <?php if (!empty($upcoming_webinars)): ?>
+    <div class="section-row" style="margin-top: 2rem;">
+      <h2>🎙️ Upcoming Live Webinars</h2>
+    </div>
+    <div class="enrolled-grid" style="margin-bottom: 2.5rem; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+      <?php foreach ($upcoming_webinars as $w): ?>
+      <div class="enrolled-card" style="display:flex; flex-direction:column; justify-content:space-between; height: 100%;">
+        <div class="enrolled-thumb" style="background:#FFF9DB; font-size: 2.2rem; display:flex; align-items:center; justify-content:center; height:120px;">
+          📹
+        </div>
+        <div class="enrolled-body" style="flex:1; display:flex; flex-direction:column; justify-content:space-between; padding: 1.25rem;">
+          <div>
+            <span style="font-size:0.7rem; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:0.25rem;">
+              Hosted by <?= e($w['organizationName']) ?>
+            </span>
+            <div class="enrolled-title" style="margin-bottom:0.4rem; font-size:1rem; font-weight:700; color:var(--ink); line-height: 1.3;"><?= e($w['title']) ?></div>
+            <p style="font-size:0.8rem; color:var(--ink-soft); line-height:1.4; margin-bottom:1rem; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">
+              <?= e($w['description']) ?>
+            </p>
+          </div>
+          <div>
+            <div style="font-size:0.82rem; color:var(--ink-mid); font-weight:600; margin-bottom:0.75rem; display:flex; align-items:center; gap:0.35rem;">
+              <span>📅</span> <?= date('d-m-Y • h:i A', strtotime($w['dateTime'])) ?>
+            </div>
+            <a href="<?= e($w['meetLink']) ?>" target="_blank" rel="noopener noreferrer" class="btn-pill btn-pill-primary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:0.4rem; background:#0F9D58; border-color:#0F9D58; color:white; padding:0.6rem; font-size:0.85rem; border-radius:12px; text-decoration:none;">
+              <span>📹</span> Join Google Meet
+            </a>
           </div>
         </div>
       </div>
