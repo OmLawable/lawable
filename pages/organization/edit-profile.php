@@ -170,25 +170,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../../assets/css/lawable.css?v=3" />
   <style>
-    body.profile-page { background: #FCF8F1 !important; }
-    .profile-shell { width: min(980px, 100%) !important; margin: 0 auto !important; }
-    .profile-form-wrap { display: flex !important; justify-content: center !important; width: 100% !important; }
-    .profile-form { width: 100% !important; }
-    .profile-card { width: 100%; max-width: 920px; margin: 0 auto; background: white; border: 1px solid #E5E0D8; border-radius: 28px; box-shadow: 0 4px 24px rgba(13,17,23,0.08); }
-    .profile-card-header { display: flex; align-items: center; gap: 1rem; padding: 1.75rem 2rem 1.5rem; border-bottom: 1px solid rgba(229,224,216,0.9); }
-    .profile-card-icon { width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; border-radius: 16px; background: rgba(201,147,58,0.14); color: #A8732A; }
-    .profile-card-body { display: grid; gap: 1.75rem; padding: 1.75rem 2rem 2rem; }
-    .profile-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
-    .profile-field { display: grid; gap: 0.5rem; }
-    .profile-field label { font-size: 0.95rem; font-weight: 600; color: #4B5563; }
-    .profile-field input, .profile-field textarea { width: 100%; min-height: 44px; border: 1px solid #E5E0D8; border-radius: 16px; padding: 0.95rem 1rem; background: white; color: #0D1117; font-family: 'Inter', sans-serif; font-size: 0.95rem; transition: border-color .2s, box-shadow .2s; }
-    .profile-field textarea { min-height: 140px; resize: vertical; }
-    .profile-field input:focus, .profile-field textarea:focus { outline: none; border-color: #C9933A; box-shadow: 0 0 0 3px rgba(201,147,58,0.12); }
-    .profile-field input[disabled], .profile-field input[readonly] { background: #F8F4EF; color: #6B7280; cursor: not-allowed; }
-    .profile-field-full { grid-column: 1 / -1; }
+    body.profile-page { background: var(--cream) !important; }
     .profile-actions { display: flex; justify-content: flex-end; gap: 1rem; }
-    .btn-ghost { border: 1px solid #E5E0D8; background: white; color: #0D1117; }
-    .btn-primary { background: #A8732A; color: white; }
+    .btn-ghost { border: 1px solid var(--border); background: var(--white); color: var(--ink); }
+    .btn-primary { background: var(--gold-dk); color: white; }
   </style>
 </head>
 <body class="profile-page">

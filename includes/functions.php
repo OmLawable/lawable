@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+date_default_timezone_set('Asia/Kolkata');
 
 if (!defined('LAWABLE_BASE_PATH')) {
     define('LAWABLE_BASE_PATH', '/lawable');

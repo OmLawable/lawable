@@ -18,44 +18,73 @@ function fetch_teacher_profile(FirestoreClient $db, string $teacherUid): array
         throw new RuntimeException('Teacher account not found.');
     }
 
+    $orgId = $profile['organizationId'] ?? '';
+    $orgName = $profile['organizationName'] ?? '';
+
+    if (!empty($orgId) && $orgId !== 'none' && empty($orgName)) {
+        try {
+            $orgDoc = $db->get('organizations', $orgId);
+            if ($orgDoc) {
+                $orgName = $orgDoc['organizationName'] ?? $orgDoc['contactPerson'] ?? '';
+            }
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+
+    if (empty($orgName) || $orgId === 'none' || $orgId === '') {
+        $orgName = 'Independent (No Affiliation)';
+    }
+
     return [
-        'id'             => $profile['__id'] ?? $teacherUid,
-        'name'           => $profile['name'] ?? '',
-        'username'       => $profile['username'] ?? '',
-        'email'          => $profile['email'] ?? '',
-        'phone'          => $profile['phone'] ?? '',
-        'bio'            => $profile['bio'] ?? '',
-        'qualification'  => $profile['qualification'] ?? '',
-        'specialization' => $profile['specialization'] ?? '',
-        'experience'     => $profile['experience'] ?? '',
-        'designation'    => $profile['designation'] ?? '',
-        'headline'       => $profile['headline'] ?? '',
-        'publicEmail'    => $profile['publicEmail'] ?? '',
-        'avatar'         => $profile['avatar'] ?? 'avatar1.png',
-        'date_of_birth'  => $profile['dateOfBirth'] ?? '',
-        'gender'         => $profile['gender'] ?? '',
+        'id'                => $profile['__id'] ?? $teacherUid,
+        'name'              => $profile['name'] ?? '',
+        'username'          => $profile['username'] ?? '',
+        'email'             => $profile['email'] ?? '',
+        'phone'             => $profile['phone'] ?? '',
+        'bio'               => $profile['bio'] ?? '',
+        'qualification'     => $profile['qualification'] ?? '',
+        'specialization'    => $profile['specialization'] ?? '',
+        'experience'        => $profile['experience'] ?? '',
+        'designation'       => $profile['designation'] ?? '',
+        'headline'          => $profile['headline'] ?? '',
+        'publicEmail'       => $profile['publicEmail'] ?? '',
+        'avatar'            => $profile['avatar'] ?? 'avatar1.png',
+        'date_of_birth'     => $profile['dateOfBirth'] ?? '',
+        'gender'            => $profile['gender'] ?? '',
+        'organization_id'   => $orgId,
+        'organization_name' => $orgName,
     ];
+}
+
+$activeOrgs = [];
+try {
+    $activeOrgs = $db->query('organizations', [['status', 'EQUAL', 'active']], 100);
+} catch (Throwable $e) {
+    // ignore
 }
 
 try {
     $profile = fetch_teacher_profile($db, (string) $user['id']);
 } catch (Throwable $exception) {
     $profile = [
-        'id'             => (string) $user['id'],
-        'name'           => $user['name'] ?? '',
-        'username'       => $user['username'] ?? '',
-        'email'          => $user['email'] ?? '',
-        'phone'          => $user['phone'] ?? '',
-        'bio'            => '',
-        'qualification'  => '',
-        'specialization' => '',
-        'experience'     => '',
-        'designation'    => '',
-        'headline'       => '',
-        'publicEmail'    => '',
-        'avatar'         => 'avatar1.png',
-        'date_of_birth'  => '',
-        'gender'         => '',
+        'id'                => (string) $user['id'],
+        'name'              => $user['name'] ?? '',
+        'username'          => $user['username'] ?? '',
+        'email'             => $user['email'] ?? '',
+        'phone'             => $user['phone'] ?? '',
+        'bio'               => '',
+        'qualification'     => '',
+        'specialization'    => '',
+        'experience'        => '',
+        'designation'       => '',
+        'headline'          => '',
+        'publicEmail'       => '',
+        'avatar'            => 'avatar1.png',
+        'date_of_birth'     => '',
+        'gender'            => '',
+        'organization_id'   => '',
+        'organization_name' => 'Independent (No Affiliation)',
     ];
     $errors[] = 'Profile not found: ' . $exception->getMessage();
 }
@@ -125,22 +154,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        $organizationId = trim((string) ($_POST['organization_id'] ?? ''));
+        $orgName = 'Independent (No Affiliation)';
+
+        if ($organizationId !== '' && $organizationId !== 'none') {
+            try {
+                $orgDoc = $db->get('organizations', $organizationId);
+                if ($orgDoc) {
+                    $orgName = $orgDoc['organizationName'] ?? $orgDoc['contactPerson'] ?? '';
+                }
+            } catch (Throwable $e) {
+                // ignore
+            }
+        } else {
+            $organizationId = '';
+        }
+
         $teacherDoc = [
-            'name'           => $name,
-            'username'       => $username,
-            'email'          => $email,
-            'phone'          => $phone,
-            'bio'            => $bio,
-            'qualification'  => $qualification,
-            'specialization' => $specialization,
-            'experience'     => $experience,
-            'designation'    => $designation,
-            'headline'       => $headline,
-            'publicEmail'    => $publicEmail,
-            'avatar'         => $avatar,
-            'dateOfBirth'    => $dateOfBirth,
-            'gender'         => $gender,
-            'updatedAt'      => FirestoreClient::now()
+            'name'             => $name,
+            'username'         => $username,
+            'email'            => $email,
+            'phone'            => $phone,
+            'organizationId'   => $organizationId,
+            'organizationName' => $orgName,
+            'bio'              => $bio,
+            'qualification'    => $qualification,
+            'specialization'   => $specialization,
+            'experience'       => $experience,
+            'designation'      => $designation,
+            'headline'         => $headline,
+            'publicEmail'      => $publicEmail,
+            'avatar'           => $avatar,
+            'dateOfBirth'      => $dateOfBirth,
+            'gender'           => $gender,
+            'updatedAt'        => FirestoreClient::now()
         ];
 
         // Merge existing fields like status, createdAt, etc.
@@ -429,6 +476,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               </div>
 
               <div class="profile-field profile-field-full">
+                <label for="organization_id">Affiliated Organization</label>
+                <select id="organization_id" name="organization_id" style="width: 100%;">
+                  <option value="none" <?= (empty($profile['organization_id']) || $profile['organization_id'] === 'none') ? 'selected' : '' ?>>Independent (No Affiliation)</option>
+                  <?php foreach ($activeOrgs as $org): ?>
+                    <option value="<?= e($org['__id']) ?>" <?= ($profile['organization_id'] ?? '') === $org['__id'] ? 'selected' : '' ?>>
+                      <?= e($org['organizationName'] ?? $org['contactPerson'] ?? 'Unnamed Organization') ?> (<?= e($org['email'] ?? '') ?>)
+                    </option>
+                  <?php endforeach; ?>
+                </select>
+                <span style="font-size:0.8rem; color:var(--ink-soft); margin-top:0.15rem; display:block;">
+                  Current Status: <strong style="color:var(--gold-dk);"><?= e($profile['organization_name'] ?? 'Independent (No Affiliation)') ?></strong>
+                </span>
+              </div>
+
+              <div class="profile-field profile-field-full">
                 <label for="bio">Bio</label>
                 <textarea id="bio" name="bio" maxlength="1000" rows="5" placeholder="Tell students about your teaching goals and legal background..."><?= e($profile['bio'] ?? '') ?></textarea>
               </div>
@@ -495,7 +557,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <label>Email Address</label>
                 <input type="text" readonly value="<?= e($profile['email'] ?? '') ?>" />
               </div>
-              <div class="profile-field profile-field-full">
+              <div class="profile-field">
+                <label>Affiliated Organization</label>
+                <input type="text" readonly value="<?= e($profile['organization_name'] ?? 'Independent (No Affiliation)') ?>" />
+              </div>
+              <div class="profile-field">
                 <label>Account Status</label>
                 <input type="text" readonly value="Active instructor account (Firestore verified)" />
               </div>
