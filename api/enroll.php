@@ -12,7 +12,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     json_response(['success' => false, 'message' => 'Method not allowed.'], 405);
 }
 
-$course_id = trim((string) ($_POST['course_id'] ?? ''));
+// Accept JSON body (from course-detail.php fetch) or legacy form POST
+$course_id = '';
+$contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+if (str_contains($contentType, 'application/json')) {
+    $body = (string) file_get_contents('php://input');
+    $payload = json_decode($body, true);
+    $course_id = trim((string) ($payload['courseId'] ?? $payload['course_id'] ?? ''));
+} else {
+    $course_id = trim((string) ($_POST['course_id'] ?? $_POST['courseId'] ?? ''));
+}
+
 if ($course_id === '') {
     json_response(['success' => false, 'message' => 'Invalid course ID.'], 400);
 }

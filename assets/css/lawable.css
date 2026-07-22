@@ -129,6 +129,95 @@ nav.scrolled {
 .nav-links a.active { color: var(--gold); }
 .nav-links a.active::after { transform: scaleX(1); }
 
+/* ─── Nav Dropdown ─── */
+li.nav-dropdown {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+li.nav-dropdown .nav-dropdown-menu {
+  display: none !important;
+  position: absolute !important;
+  top: 100% !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  background: #FFFFFF !important;
+  min-width: 175px !important;
+  border-radius: 12px !important;
+  border: 1px solid #E5E0D8 !important;
+  box-shadow: 0 10px 35px rgba(13,17,23,0.15) !important;
+  padding: 0.4rem !important;
+  z-index: 99999 !important;
+  margin-top: 6px !important;
+}
+
+body.dark-theme li.nav-dropdown .nav-dropdown-menu {
+  background: #1E293B !important;
+  border-color: #334155 !important;
+  box-shadow: 0 10px 35px rgba(0,0,0,0.5) !important;
+}
+
+li.nav-dropdown .nav-dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: 0;
+  right: 0;
+  height: 12px;
+}
+
+li.nav-dropdown:hover .nav-dropdown-menu,
+li.nav-dropdown:focus-within .nav-dropdown-menu {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+li.nav-dropdown .nav-dropdown-menu a {
+  display: flex !important;
+  align-items: center !important;
+  padding: 0.65rem 0.9rem !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  color: #0D1117 !important;
+  text-decoration: none !important;
+  border-radius: 8px !important;
+  transition: background 0.15s, color 0.15s !important;
+  white-space: nowrap !important;
+}
+
+body.dark-theme li.nav-dropdown .nav-dropdown-menu a {
+  color: #F8FAFC !important;
+}
+
+li.nav-dropdown .nav-dropdown-menu a::after {
+  display: none !important;
+}
+
+li.nav-dropdown .nav-dropdown-menu a:hover {
+  background: #F4E4C3 !important;
+  color: #A8732A !important;
+}
+
+body.dark-theme li.nav-dropdown .nav-dropdown-menu a:hover {
+  background: #3A3022 !important;
+  color: #F0C56D !important;
+}
+
+li.nav-dropdown .nav-dropdown-menu a.active {
+  background: #F4E4C3 !important;
+  color: #A8732A !important;
+  font-weight: 600 !important;
+}
+  background: var(--gold-lt, #F4E4C3);
+  color: var(--gold-dk, #A8732A);
+}
+.nav-dropdown-menu a.active {
+  background: var(--gold-lt, #F4E4C3);
+  color: var(--gold-dk, #A8732A);
+  font-weight: 600;
+}
+
 .nav-cta {
   background: var(--ink) !important;
   color: var(--white) !important;

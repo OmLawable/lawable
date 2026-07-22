@@ -12,7 +12,7 @@ $isAdmin = $isLoggedIn && ($user['role'] ?? '') === 'admin';
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>About — Lawable</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../assets/css/lawable.css" />
+  <link rel="stylesheet" href="../assets/css/lawable.css?v=1.4" />
 </head>
 <body>
 <div class="cursor-glow" id="cursorGlow"></div>
@@ -23,7 +23,15 @@ $isAdmin = $isLoggedIn && ($user['role'] ?? '') === 'admin';
   <a href="<?= $isAdmin ? 'admin/dashboard.php' : ($isLoggedIn ? 'dashboard.php' : '../index.php') ?>" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
     <li><a href="offerings.php">Offerings</a></li>
-    <li><a href="courses.php">Courses</a></li>
+    <li class="nav-dropdown">
+      <a href="courses.php" class="nav-dropdown-toggle">
+        Courses <span class="nav-dropdown-chevron">▼</span>
+      </a>
+      <div class="nav-dropdown-menu">
+        <a href="courses.php">Explore Courses</a>
+        <a href="my-learnings.php">My Learnings</a>
+      </div>
+    </li>
     <li><a href="about.php" class="active">About</a></li>
     <li><a href="contact.php">Contact</a></li>
     <?php if ($isLoggedIn): ?>
@@ -52,7 +60,8 @@ $isAdmin = $isLoggedIn && ($user['role'] ?? '') === 'admin';
 
 <nav class="nav-drawer" id="drawer">
   <a href="offerings.php" onclick="closeDrawer()">Offerings</a>
-  <a href="courses.php" onclick="closeDrawer()">Courses</a>
+  <a href="courses.php" onclick="closeDrawer()">Explore Courses</a>
+  <a href="my-learnings.php" onclick="closeDrawer()">My Learnings</a>
   <a href="about.php" onclick="closeDrawer()">About</a>
   <a href="contact.php" onclick="closeDrawer()">Contact</a>
   <?php if ($isLoggedIn): ?>
