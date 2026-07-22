@@ -294,7 +294,7 @@ if (!$is_org) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>My Dashboard — Lawable</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../assets/css/lawable.css" />
+  <link rel="stylesheet" href="../assets/css/lawable.css?v=1.4" />
   <style>
     /* ─── Student Dashboard Reset ──────────────── */
     :root {
@@ -1010,7 +1010,15 @@ if (!$is_org) {
   <a href="dashboard.php" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
     <li><a href="offerings.php">Offerings</a></li>
-    <li><a href="courses.php">Courses</a></li>
+    <li class="nav-dropdown">
+      <a href="courses.php" class="nav-dropdown-toggle">
+        Courses <span class="nav-dropdown-chevron">▼</span>
+      </a>
+      <div class="nav-dropdown-menu">
+        <a href="courses.php">Explore Courses</a>
+        <a href="my-learnings.php">My Learnings</a>
+      </div>
+    </li>
     <li><a href="about.php">About</a></li>
     <li><a href="contact.php">Contact</a></li>
     <?php 
@@ -1045,7 +1053,8 @@ if (!$is_org) {
 
 <nav class="nav-drawer" id="drawer">
   <a href="offerings.php" onclick="closeDrawer()">Offerings</a>
-  <a href="courses.php" onclick="closeDrawer()">Courses</a>
+  <a href="courses.php" onclick="closeDrawer()">Explore Courses</a>
+  <a href="my-learnings.php" onclick="closeDrawer()">My Learnings</a>
   <a href="about.php" onclick="closeDrawer()">About</a>
   <a href="contact.php" onclick="closeDrawer()">Contact</a>
   <?php if (!$is_org): ?>
@@ -1324,7 +1333,7 @@ if (!$is_org) {
     <?php if ($last_course): ?>
     <div class="section-row">
       <h2>▶ Continue Learning</h2>
-      <a href="courses.php">All courses →</a>
+      <a href="my-learnings.php">My Learnings →</a>
     </div>
     <div class="continue-card">
       <?php
@@ -1386,10 +1395,10 @@ if (!$is_org) {
     <?php if (!empty($enrolled_courses)): ?>
     <div class="section-row">
       <h2>📚 My Courses</h2>
-      <a href="courses.php">View all →</a>
+      <a href="my-learnings.php">View all →</a>
     </div>
     <div class="enrolled-grid">
-      <?php foreach ($enrolled_courses as $ec):
+      <?php foreach (array_slice($enrolled_courses, 0, 5) as $ec):
         // Determine course image
         $courseImage = '';
         $titleLower = strtolower($ec['title'] ?? '');
@@ -1415,13 +1424,17 @@ if (!$is_org) {
         }
       ?>
       <div class="enrolled-card">
+        <a href="course-detail.php?id=<?= e($ec['id']) ?>" style="text-decoration:none;display:block;" tabindex="-1" aria-hidden="true">
         <?php if (!empty($courseImage)): ?>
-          <div class="enrolled-thumb" style="background-image: url('<?= e($courseImage) ?>'); background-size: cover; background-position: center; font-size: 0; color: transparent;"></div>
+          <div class="enrolled-thumb" style="background-image: url('<?= e($courseImage) ?>'); background-size: cover; background-position: center; font-size: 0; color: transparent; cursor: pointer;"></div>
         <?php else: ?>
-          <div class="enrolled-thumb">⚖️</div>
+          <div class="enrolled-thumb" style="cursor: pointer;">⚖️</div>
         <?php endif; ?>
+        </a>
         <div class="enrolled-body">
-          <div class="enrolled-title"><?= e($ec['title']) ?></div>
+          <a href="course-detail.php?id=<?= e($ec['id']) ?>" style="text-decoration:none;color:inherit;">
+            <div class="enrolled-title" style="cursor:pointer;"><?= e($ec['title']) ?></div>
+          </a>
           <div class="enrolled-progress">
             <div class="enrolled-progress-bar">
               <div class="enrolled-progress-fill" style="width:<?= min(100, round((float) $ec['progress_percentage'])) ?>%"></div>
@@ -1435,11 +1448,7 @@ if (!$is_org) {
             <span class="enrolled-price">
               <?= (float) $ec['price'] > 0 ? '₹' . number_format((float) $ec['price']) : '<span class="free-label">Free</span>' ?>
             </span>
-            <?php if ((float) $ec['progress_percentage'] < 100): ?>
-            <a href="student/course-workspace.php?course_id=<?= e($ec['id']) ?>" class="enrolled-continue">Continue →</a>
-            <?php else: ?>
-            <span style="font-size:0.72rem;color:var(--green);font-weight:600;">✓ Completed</span>
-            <?php endif; ?>
+            <a href="course-detail.php?id=<?= e($ec['id']) ?>" class="enrolled-continue">View Content →</a>
           </div>
         </div>
       </div>
@@ -1551,18 +1560,22 @@ if (!$is_org) {
         }
       ?>
       <div class="rec-card">
+        <a href="course-detail.php?id=<?= e($rc['id']) ?>" style="text-decoration:none;display:block;" tabindex="-1" aria-hidden="true">
         <?php if (!empty($courseImage)): ?>
-          <div class="rec-thumb" style="background-image: url('<?= e($courseImage) ?>'); background-size: cover; background-position: center; font-size: 0; color: transparent;"></div>
+          <div class="rec-thumb" style="background-image: url('<?= e($courseImage) ?>'); background-size: cover; background-position: center; font-size: 0; color: transparent; cursor: pointer;"></div>
         <?php else: ?>
-          <div class="rec-thumb">⚖️</div>
+          <div class="rec-thumb" style="cursor: pointer;">⚖️</div>
         <?php endif; ?>
+        </a>
         <div class="rec-body">
-          <div class="rec-title"><?= e($rc['title']) ?></div>
+          <a href="course-detail.php?id=<?= e($rc['id']) ?>" style="text-decoration:none;color:inherit;">
+            <div class="rec-title" style="cursor:pointer;"><?= e($rc['title']) ?></div>
+          </a>
           <div class="rec-footer">
             <span class="rec-price">
               <?= (float) $rc['price'] > 0 ? '₹' . number_format((float) $rc['price']) : '<span class="free-label">Free</span>' ?>
             </span>
-            <a href="courses.php?course_id=<?= e($rc['id']) ?>" class="rec-enroll">Enroll →</a>
+            <a href="course-detail.php?id=<?= e($rc['id']) ?>" class="rec-enroll">Explore →</a>
           </div>
         </div>
       </div>

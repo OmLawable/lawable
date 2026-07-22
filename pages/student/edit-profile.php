@@ -276,7 +276,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Edit Profile - Lawable</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../../assets/css/lawable.css?v=2" />
+  <link rel="stylesheet" href="../../assets/css/lawable.css?v=1.4" />
   <!-- Flatpickr Datepicker -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -517,7 +517,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <a href="../dashboard.php" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
     <li><a href="../offerings.php">Offerings</a></li>
-    <li><a href="../courses.php">Courses</a></li>
+    <li class="nav-dropdown">
+      <a href="../courses.php" class="nav-dropdown-toggle">
+        Courses <span class="nav-dropdown-chevron">▼</span>
+      </a>
+      <div class="nav-dropdown-menu">
+        <a href="../courses.php">Explore Courses</a>
+        <a href="../my-learnings.php">My Learnings</a>
+      </div>
+    </li>
     <li><a href="../about.php">About</a></li>
     <li><a href="../contact.php">Contact</a></li>
     <li class="nav-profile-item">
@@ -534,7 +542,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <nav class="nav-drawer" id="drawer">
   <a href="../offerings.php" onclick="closeDrawer()">Offerings</a>
-  <a href="../courses.php" onclick="closeDrawer()">Courses</a>
+  <a href="../courses.php" onclick="closeDrawer()">Explore Courses</a>
+  <a href="../my-learnings.php" onclick="closeDrawer()">My Learnings</a>
   <a href="../about.php" onclick="closeDrawer()">About</a>
   <a href="../contact.php" onclick="closeDrawer()">Contact</a>
   <a href="edit-profile.php" onclick="closeDrawer()">Edit profile</a>

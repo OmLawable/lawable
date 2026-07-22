@@ -74,7 +74,7 @@ function diffBg(string $diff): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Explore Courses — Lawable</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../assets/css/lawable.css" />
+  <link rel="stylesheet" href="../assets/css/lawable.css?v=1.4" />
   <style>
     :root {
       --gold: #C9933A;
@@ -390,7 +390,15 @@ function diffBg(string $diff): string {
   <a href="<?= $isAdmin ? 'admin/dashboard.php' : ($isLoggedIn ? 'dashboard.php' : '../index.php') ?>" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
     <li><a href="offerings.php">Offerings</a></li>
-    <li><a href="courses.php" class="active">Courses</a></li>
+    <li class="nav-dropdown">
+      <a href="courses.php" class="nav-dropdown-toggle active">
+        Courses <span class="nav-dropdown-chevron">▼</span>
+      </a>
+      <div class="nav-dropdown-menu">
+        <a href="courses.php" class="active">Explore Courses</a>
+        <a href="my-learnings.php">My Learnings</a>
+      </div>
+    </li>
     <li><a href="about.php">About</a></li>
     <li><a href="contact.php">Contact</a></li>
     <?php if ($isLoggedIn): ?>
@@ -427,7 +435,8 @@ function diffBg(string $diff): string {
 
 <nav class="nav-drawer" id="drawer">
   <a href="offerings.php" onclick="closeDrawer()">Offerings</a>
-  <a href="courses.php" onclick="closeDrawer()">Courses</a>
+  <a href="courses.php" onclick="closeDrawer()">Explore Courses</a>
+  <a href="my-learnings.php" onclick="closeDrawer()">My Learnings</a>
   <a href="about.php" onclick="closeDrawer()">About</a>
   <a href="contact.php" onclick="closeDrawer()">Contact</a>
   <?php if ($isLoggedIn): ?>
@@ -504,6 +513,7 @@ function diffBg(string $diff): string {
         elseif (str_contains($cat, 'Personal')) { $thumbClass = 'course-thumb-personal'; $thumbIcon = '🌟'; }
       ?>
       <div class="course-card fade-up" data-category="<?= e($cat) ?>" data-title="<?= e(strtolower($course['title'])) ?>">
+        <a href="course-detail.php?id=<?= e($course['__id']) ?>" style="text-decoration:none;display:block;" tabindex="-1" aria-hidden="true">
         <?php if (!empty($courseImage)): ?>
           <div class="course-thumb" style="background-image: url('<?= e($courseImage) ?>'); background-size: cover; background-position: center;">
         <?php else: ?>
@@ -513,10 +523,13 @@ function diffBg(string $diff): string {
           <?php if ($price == 0): ?><span class="course-badge free">Free</span><?php endif; ?>
           <?php if ($rating >= 4.8): ?><span class="course-badge popular" style="right:10px;left:auto;">★ Popular</span><?php endif; ?>
         </div>
+        </a>
         <div class="course-body">
           <div class="course-category"><?= e($cat) ?></div>
-          <div class="course-title"><?= e($course['title']) ?></div>
-          <div class="course-desc"><?= e($course['description'] ?? '') ?></div>
+          <a href="course-detail.php?id=<?= e($course['__id']) ?>" style="text-decoration:none;color:inherit;">
+            <div class="course-title" style="cursor:pointer;"><?= e($course['title']) ?></div>
+            <div class="course-desc"><?= e($course['description'] ?? '') ?></div>
+          </a>
           <div class="course-meta-row">
             <span class="course-rating"><span class="stars">★★★★★</span> <?= number_format($rating, 1) ?></span>
             <span class="course-diff" style="background:<?= diffBg($diff) ?>;color:<?= diffColor($diff) ?>"><?= diffLabel($diff) ?></span>
@@ -526,9 +539,9 @@ function diffBg(string $diff): string {
             <?php if ($enrolled): ?>
               <a href="student/course-workspace.php?course_id=<?= e($course['__id']) ?>" class="course-enroll-btn enrolled" style="text-decoration:none;">Start Learning →</a>
             <?php else: ?>
-              <span class="course-enroll-btn" data-course-id="<?= e($course['__id']) ?>" onclick="<?= $isStudent ? "enrollCourse(this, '" . e($course['__id']) . "')" : ($isLoggedIn ? '' : "window.location='login.php'") ?>">
-                <?= $isLoggedIn ? 'Enroll →' : 'Join →' ?>
-              </span>
+              <a href="course-detail.php?id=<?= e($course['__id']) ?>" class="course-enroll-btn" style="text-decoration:none;">
+                <?= $isLoggedIn ? 'View Course →' : 'Explore →' ?>
+              </a>
             <?php endif; ?>
           </div>
         </div>

@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_completed'])) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><?= e($course['title']) ?> — Lawable</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../../assets/css/lawable.css" />
+  <link rel="stylesheet" href="../../assets/css/lawable.css?v=1.4" />
   <style>
     :root {
       --gold: #C9933A;
@@ -299,7 +299,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_completed'])) {
   <a href="../dashboard.php" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
     <li><a href="../dashboard.php">Dashboard</a></li>
-    <li><a href="../courses.php">Explore Courses</a></li>
+    <li class="nav-dropdown">
+      <a href="../courses.php" class="nav-dropdown-toggle">
+        Courses <span class="nav-dropdown-chevron">▼</span>
+      </a>
+      <div class="nav-dropdown-menu">
+        <a href="../courses.php">Explore Courses</a>
+        <a href="../my-learnings.php">My Learnings</a>
+      </div>
+    </li>
     <li class="nav-profile-item">
       <a href="edit-profile.php" class="nav-profile" aria-label="Edit profile">
         <span aria-hidden="true">👤</span>
