@@ -296,12 +296,20 @@ if (!$is_org) {
 $org_webinars = [];
 $upcoming_webinars = [];
 $teacher_org_id = '';
+$teacher_org_name = '';
 
 if ($is_teacher) {
     try {
         $teacherDoc = $db->get('teachers', $student_id);
         if ($teacherDoc) {
             $teacher_org_id = $teacherDoc['organizationId'] ?? '';
+            $teacher_org_name = $teacherDoc['organizationName'] ?? '';
+            if (!empty($teacher_org_id) && $teacher_org_id !== 'none' && empty($teacher_org_name)) {
+                $orgDoc = $db->get('organizations', $teacher_org_id);
+                if ($orgDoc) {
+                    $teacher_org_name = $orgDoc['organizationName'] ?? $orgDoc['contactPerson'] ?? '';
+                }
+            }
         }
     } catch (Throwable $e) {
         // Ignore
@@ -1146,6 +1154,17 @@ if (!$is_org && !$is_teacher) {
         <p style="color:var(--ink-soft);font-size:0.95rem;margin-top:0.3rem;">
           Here is your <?= $is_teacher ? 'instructor' : "organization's" ?> course catalog overview.
         </p>
+        <?php if ($is_teacher): ?>
+          <?php if (!empty($teacher_org_name) && $teacher_org_name !== 'Independent (No Affiliation)' && !empty($teacher_org_id) && $teacher_org_id !== 'none'): ?>
+            <div style="margin-top:0.6rem; display:inline-flex; align-items:center; gap:0.4rem; font-size:0.88rem; font-weight:600; color:var(--gold-dk); background:var(--gold-lt); padding:0.35rem 0.85rem; border-radius:50px; border:1px solid rgba(201,147,58,0.25);">
+              🏛 Affiliated with: <strong><?= e($teacher_org_name) ?></strong>
+            </div>
+          <?php else: ?>
+            <div style="margin-top:0.6rem; display:inline-flex; align-items:center; gap:0.4rem; font-size:0.82rem; font-weight:500; color:var(--ink-soft); background:var(--paper); padding:0.3rem 0.75rem; border-radius:50px; border:1px solid var(--border);">
+              🎓 Independent Instructor (No Affiliation)
+            </div>
+          <?php endif; ?>
+        <?php endif; ?>
       </div>
     </div>
 
