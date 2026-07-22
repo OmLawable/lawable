@@ -19,7 +19,10 @@ if (!$course || ($course["status"] ?? "") !== "published") {
 }
 
 $lessons = $course["lessons"] ?? [];
-usort($lessons, fn($a,$b) => ((int)($a["sortOrder"]??0)) <=> ((int)($b["sortOrder"]??0)));
+if (empty($lessons)) {
+    $lessons = $db->query("lessons", [["courseId", "EQUAL", $courseId]], 50);
+}
+usort($lessons, fn($a,$b) => ((int)($a["sortOrder"]??$a["order"]??0)) <=> ((int)($b["sortOrder"]??$b["order"]??0)));
 
 $enrolled = false;
 if ($isStudent) {
