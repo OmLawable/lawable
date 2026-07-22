@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/firestore.php';
+require_once __DIR__ . '/../../includes/credits.php';
 
 start_secure_session();
 if (!is_logged_in()) {
@@ -38,8 +39,11 @@ if (!$enrollment) {
 
 // Get lessons list
 $lessons = $course['lessons'] ?? [];
+if (empty($lessons)) {
+    $lessons = $db->query('lessons', [['courseId', 'EQUAL', $courseId]], 50);
+}
 usort($lessons, function($a, $b) {
-    return ((int) ($a['sortOrder'] ?? 0)) <=> ((int) ($b['sortOrder'] ?? 0));
+    return ((int) ($a['sortOrder'] ?? $a['order'] ?? 0)) <=> ((int) ($b['sortOrder'] ?? $b['order'] ?? 0));
 });
 
 // Determine active lesson
@@ -123,6 +127,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_completed'])) {
             $progress['updatedAt']          = date('c');
 
             $db->set('progress', $progress, $progressId);
+
+            // Award course completion credits if 100% completed
+            if ($percentage >= 100.0) {
+                check_and_award_course_completion_credit((string) $user['id'], $courseId);
+            }
             
             // Redirect to reload page
             header('Location: course-workspace.php?course_id=' . urlencode($courseId) . '&lesson_id=' . urlencode($activeLessonId));

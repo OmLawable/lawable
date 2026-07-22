@@ -390,7 +390,13 @@ if ($isStudent) {
     <li><a href="about.php">About</a></li>
     <li><a href="contact.php">Contact</a></li>
     <?php if ($isLoggedIn): ?>
-    <li><a href="dashboard.php">Dashboard</a></li>
+    <?php if (!$isAdmin): ?>
+    <li class="nav-profile-item">
+      <a href="student/edit-profile.php" class="nav-profile" aria-label="Edit profile">
+        <span aria-hidden="true">👤</span>
+      </a>
+    </li>
+    <?php endif; ?>
     <li><a href="../api/logout.php" class="nav-cta">Log out</a></li>
     <?php else: ?>
     <li><a href="login.php" class="nav-cta">Log in →</a></li>
@@ -412,7 +418,9 @@ if ($isStudent) {
   <a href="about.php" onclick="closeDrawer()">About</a>
   <a href="contact.php" onclick="closeDrawer()">Contact</a>
   <?php if ($isLoggedIn): ?>
-  <a href="dashboard.php" onclick="closeDrawer()">Dashboard</a>
+  <?php if (!$isAdmin): ?>
+  <a href="student/edit-profile.php" onclick="closeDrawer()">Edit Profile</a>
+  <?php endif; ?>
   <a href="../api/logout.php" class="drawer-cta">Log out</a>
   <?php else: ?>
   <a href="login.php" class="drawer-cta">Log in →</a>

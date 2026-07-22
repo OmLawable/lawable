@@ -3,12 +3,24 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/firestore.php';
+require_once __DIR__ . '/../../includes/credits.php';
 start_secure_session();
 
 $user = require_login('user');
 $db = get_firestore();
 $errors = [];
 $success = '';
+
+// Check and award daily login credit (+50 credits)
+$loginCreditResult = check_and_award_daily_login_credit((string) $user['id']);
+$creditsHistory = get_student_credit_history((string) $user['id']);
+$studentDoc = $db->get('students', (string) $user['id']);
+$totalCredits = (int) ($studentDoc['credits'] ?? 0);
+$unlockedCourseIds = $studentDoc['unlockedCourses'] ?? [];
+if (!is_array($unlockedCourseIds)) {
+    $unlockedCourseIds = [];
+}
+$lockedCourses = $db->query('courses', [['isLocked', 'EQUAL', true]], 50);
 
 function fetch_student_profile(FirestoreClient $db, string $studentUid): array
 {
@@ -308,29 +320,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       --input-bg: #0F172A;
     }
 
-    body.profile-page { background: var(--page-bg) !important; color: var(--ink); font-family: 'Inter', sans-serif; }
+    body.profile-page { background: var(--page-bg) !important; color: var(--ink); font-family: 'Inter', sans-serif; padding-top: 68px !important; margin: 0 !important; }
     
-    /* ─── Breadcrumbs & Header ──────────────── */
-    .profile-breadcrumbs { font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
-    .profile-breadcrumbs a { color: var(--ink-soft); text-decoration: none; transition: color 0.2s; }
-    .profile-breadcrumbs a:hover { color: var(--gold); }
-    .profile-breadcrumbs span { color: var(--border); }
-    
-    .profile-header-title { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; color: var(--ink); margin-bottom: 1.75rem; }
-
     /* ─── Shell Layout ──────────────── */
-    .profile-shell { width: min(1040px, 100%) !important; margin: 2rem 0 2rem 3.5rem !important; padding: 0 1.5rem 0 0; box-sizing: border-box; }
-    .profile-layout { display: grid; grid-template-columns: 280px 1fr; gap: 2rem; align-items: start; }
+    .profile-shell { width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 1.5rem 0 2.5rem 0 !important; box-sizing: border-box; }
+    .profile-layout { display: grid; grid-template-columns: 290px 1fr; gap: 2rem; align-items: start; }
     
     /* ─── Sidebar Cards ──────────────── */
-    .profile-sidebar { background: var(--white); border: 1px solid var(--border); border-radius: 24px; padding: 1.5rem; box-shadow: 0 4px 24px rgba(13,17,23,0.04); display: flex; flex-direction: column; gap: 0.5rem; }
+    .profile-sidebar { background: var(--white); border: 1px solid var(--border); border-left: none !important; border-radius: 0 24px 24px 0 !important; padding: 1.75rem 1.5rem; box-shadow: 4px 4px 24px rgba(13,17,23,0.04); display: flex; flex-direction: column; gap: 0.5rem; position: sticky; top: 84px; margin-left: 0 !important; }
     
     .tab-btn { display: flex; align-items: center; gap: 0.75rem; width: 100%; border: none; background: transparent; padding: 0.95rem 1.25rem; font-size: 0.95rem; font-weight: 600; text-align: left; color: var(--ink-mid); border-radius: 9999px; cursor: pointer; transition: background 0.2s, color 0.2s; }
     .tab-btn:hover { background: var(--gold-lt); color: var(--gold-dk); }
     .tab-btn.active { background: var(--gold); color: white; }
     
     /* ─── Content Panel ──────────────── */
-    .profile-content { background: var(--white); border: 1px solid var(--border); border-radius: 24px; padding: 2.25rem; box-shadow: 0 4px 24px rgba(13,17,23,0.04); min-height: 480px; width: 700px; box-sizing: border-box; }
+    .profile-content { background: var(--white); border: 1px solid var(--border); border-radius: 24px 0 0 24px !important; border-right: none !important; padding: 2.25rem 3rem 2.5rem 2.5rem; box-shadow: -4px 4px 24px rgba(13,17,23,0.04); min-height: 480px; width: 100%; box-sizing: border-box; margin-right: 0 !important; }
     
     .profile-panel { display: none; }
     .profile-panel.active { display: block; }
@@ -510,9 +514,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .multiselect-option.selected { background: #FAF7F2; color: #A8732A; font-weight: 600; cursor: default; opacity: 0.6; }
     .multiselect-option.disabled { opacity: 0.4; cursor: not-allowed; }
     .multiselect-option.disabled:hover { background: transparent; color: #374151; }
+
+    /* ─── Toast Notification ─── */
+    #toast {
+      position: fixed;
+      top: 1.5rem;
+      right: 1.5rem;
+      max-width: 420px;
+      padding: 1rem 1.35rem;
+      border-radius: 14px;
+      background: var(--white);
+      box-shadow: 0 12px 35px rgba(13,17,23,0.18);
+      border-left: 5px solid var(--gold);
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--ink);
+      z-index: 999999;
+      display: none;
+      font-family: 'Inter', sans-serif;
+      line-height: 1.45;
+      animation: slideInToast 0.3s ease-out;
+    }
+    #toast.success { border-left-color: #16A34A; }
+    #toast.error { border-left-color: #DC2626; }
+    @keyframes slideInToast {
+      from { opacity: 0; transform: translateY(-15px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   </style>
 </head>
 <body class="profile-page">
+<div id="toast"></div>
 <nav id="navbar">
   <a href="../dashboard.php" class="nav-logo">Law<span>able</span></a>
   <ul class="nav-links">
@@ -551,16 +583,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </nav>
 
 <main class="profile-shell">
-  <!-- Breadcrumbs -->
-  <div class="profile-breadcrumbs">
-    <a href="../dashboard.php">Home</a>
-    <span>&rsaquo;</span>
-    <a href="edit-profile.php">My Profile</a>
-  </div>
-  
-  <!-- Page Title -->
-  <h1 class="profile-header-title">My Account</h1>
-
   <section class="profile-form-wrap">
     <?php foreach ($errors as $error): ?>
       <div class="profile-alert profile-alert-error"><?= e($error) ?></div>
@@ -577,6 +599,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         <!-- Left Sidebar Navigation -->
         <aside class="profile-sidebar">
+          <div class="sidebar-header-box" style="padding-bottom: 1.15rem; margin-bottom: 0.65rem; border-bottom: 1px solid var(--border);">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--gold-lt); border: 2px solid var(--gold-dk); overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <img id="sidebar-avatar-img" src="../../assets/img/avatars/<?= e($profile['avatar'] ?? 'avatar1.png') ?>" alt="Profile" style="width:100%; height:100%; object-fit:cover;" />
+              </div>
+              <div>
+                <h2 style="font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700; color: var(--ink); margin: 0; line-height: 1.2;">My Account</h2>
+                <div style="font-size: 0.75rem; color: var(--gold-dk); font-weight: 600; margin-top: 0.1rem;"><?= e($profile['username'] ?? 'Student') ?></div>
+              </div>
+            </div>
+          </div>
+
           <button type="button" class="tab-btn active" id="tab-personal" onclick="switchTab('personal')">
             <span>👤</span> Personal Information
           </button>
@@ -585,6 +619,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           </button>
           <button type="button" class="tab-btn" id="tab-security" onclick="switchTab('security')">
             <span>🔒</span> Account Security
+          </button>
+          <button type="button" class="tab-btn" id="tab-credits" onclick="switchTab('credits')">
+            <span>🪙</span> Credits Earned
           </button>
         </aside>
 
@@ -813,6 +850,160 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               🛡️ For security reasons, email addresses cannot be changed directly. Password reset and verification emails are managed securely. Contact support if you need to update your email credentials.
             </p>
           </div>
+
+          <!-- Tab 4: Credits Earned -->
+          <div id="panel-credits" class="profile-panel">
+            <h2 class="panel-title">Credits Earned</h2>
+
+            <!-- Total Credits Hero Banner -->
+            <div style="background: linear-gradient(135deg, #1F150B 0%, #3B260E 100%); border-radius: 16px; padding: 1.75rem 2rem; color: #FFFFFF; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; margin-bottom: 2rem; box-shadow: 0 8px 24px rgba(31,21,11,0.2); flex-wrap: wrap;">
+              <div>
+                <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #EED7AD; margin-bottom: 0.35rem;">Total Balance</div>
+                <div style="font-family: 'Playfair Display', serif; font-size: 2.5rem; font-weight: 700; color: #FFFFFF; display: flex; align-items: center; gap: 0.6rem;">
+                  <span style="font-size: 2.2rem;">🪙</span> <?= number_format($totalCredits) ?> <span style="font-size: 1rem; font-family: Inter, sans-serif; font-weight: 500; color: #EED7AD;">Credits</span>
+                </div>
+                <div style="font-size: 0.82rem; color: rgba(255,255,255,0.7); margin-top: 0.4rem;">
+                  Earn credits automatically with daily logins and course completions.
+                </div>
+              </div>
+              <div style="background: rgba(255,255,255,0.1); backdrop-filter: blur(8px); padding: 1rem 1.25rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); text-align: center; min-width: 150px;">
+                <div style="font-size: 0.75rem; color: #EED7AD; font-weight: 600; text-transform: uppercase;">Daily Bonus</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: #FFFFFF; margin: 0.2rem 0;">+50 Credits</div>
+                <div style="font-size: 0.72rem; color: <?= $loginCreditResult['awarded'] ? '#4ADE80' : 'rgba(255,255,255,0.6)' ?>; font-weight: 600;">
+                  <?= $loginCreditResult['awarded'] ? '✓ Claimed Today' : 'Already Claimed' ?>
+                </div>
+              </div>
+            </div>
+
+            <!-- Credit Earning Rules -->
+            <h3 style="font-family: 'Playfair Display', serif; font-size: 1.15rem; font-weight: 700; color: var(--ink); margin-bottom: 1rem;">Credit Rewards Structure</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+              <div style="background: var(--cream); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem; display: flex; align-items: center; gap: 0.85rem;">
+                <div style="width: 42px; height: 42px; border-radius: 10px; background: #F4E4C3; color: #A8732A; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;">🎁</div>
+                <div>
+                  <div style="font-size: 0.88rem; font-weight: 700; color: var(--ink);">Daily Login</div>
+                  <div style="font-size: 0.78rem; color: #A8732A; font-weight: 600;">+50 Credits / day</div>
+                </div>
+              </div>
+
+              <div style="background: var(--cream); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem; display: flex; align-items: center; gap: 0.85rem;">
+                <div style="width: 42px; height: 42px; border-radius: 10px; background: #DCFCE7; color: #16A34A; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;">🌱</div>
+                <div>
+                  <div style="font-size: 0.88rem; font-weight: 700; color: var(--ink);">Beginner Course</div>
+                  <div style="font-size: 0.78rem; color: #16A34A; font-weight: 600;">+200 Credits</div>
+                </div>
+              </div>
+
+              <div style="background: var(--cream); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem; display: flex; align-items: center; gap: 0.85rem;">
+                <div style="width: 42px; height: 42px; border-radius: 10px; background: #DBEAFE; color: #2563EB; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;">⚖️</div>
+                <div>
+                  <div style="font-size: 0.88rem; font-weight: 700; color: var(--ink);">Intermediate Course</div>
+                  <div style="font-size: 0.78rem; color: #2563EB; font-weight: 600;">+250 Credits</div>
+                </div>
+              </div>
+
+              <div style="background: var(--cream); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem; display: flex; align-items: center; gap: 0.85rem;">
+                <div style="width: 42px; height: 42px; border-radius: 10px; background: #F3E8FF; color: #9333EA; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;">🚀</div>
+                <div>
+                  <div style="font-size: 0.88rem; font-weight: 700; color: var(--ink);">Advanced Course</div>
+                  <div style="font-size: 0.78rem; color: #9333EA; font-weight: 600;">+300 Credits</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Unlock New Courses Section -->
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 2.5rem; margin-bottom: 1.25rem;">
+              <div>
+                <h3 style="font-family: 'Playfair Display', serif; font-size: 1.35rem; font-weight: 700; color: var(--ink); margin: 0;">Unlock New Courses</h3>
+                <p style="font-size: 0.82rem; color: var(--ink-soft); margin: 0.2rem 0 0 0;">Use 500 earned credits to permanently unlock specialized professional courses.</p>
+              </div>
+              <a href="../courses.php" style="font-size: 0.85rem; font-weight: 600; color: var(--gold); text-decoration: none;">Browse Full Catalog &rarr;</a>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1.25rem; margin-bottom: 2.75rem;">
+              <?php foreach ($lockedCourses as $lc): 
+                $cid = $lc['__id'];
+                $isUnlocked = in_array($cid, $unlockedCourseIds, true);
+                $cImg = !empty($lc['imageUrl']) ? $lc['imageUrl'] : '../assets/images/constitutional_law.png';
+                $cost = (int)($lc['unlockCost'] ?? 500);
+              ?>
+              <div style="background: var(--white); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 16px rgba(13,17,23,0.04); transition: transform 0.2s, box-shadow 0.2s;" onmouseenter="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 10px 25px rgba(13,17,23,0.1)';" onmouseleave="this.style.transform='none'; this.style.boxShadow='0 4px 16px rgba(13,17,23,0.04)';">
+                <div>
+                  <div style="height: 130px; background-image: url('<?= e($cImg) ?>'); background-size: cover; background-position: center; position: relative;">
+                    <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.45) 100%);"></div>
+                    <div style="position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%; background: <?= $isUnlocked ? '#DCFCE7' : 'rgba(255,255,255,0.95)' ?>; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+                      <?= $isUnlocked ? '🔓' : '🔒' ?>
+                    </div>
+                    <div style="position: absolute; bottom: 8px; left: 12px; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: #F4E4C3; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.2rem 0.55rem; border-radius: 4px;">
+                      <?= e($lc['category'] ?? 'Specialized') ?>
+                    </div>
+                  </div>
+                  <div style="padding: 1.1rem 1.1rem 0.5rem;">
+                    <h4 style="font-family: 'Playfair Display', serif; font-size: 0.98rem; font-weight: 700; color: var(--ink); margin: 0 0 0.5rem 0; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 2.7em;">
+                      <?= e($lc['title']) ?>
+                    </h4>
+                    <p style="font-size: 0.78rem; color: var(--ink-soft); line-height: 1.45; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 2.9em;">
+                      <?= e($lc['description'] ?? '') ?>
+                    </p>
+                  </div>
+                </div>
+                <div style="padding: 0.85rem 1.1rem 1.1rem;">
+                  <?php if ($isUnlocked): ?>
+                    <a href="../course-detail.php?id=<?= e($cid) ?>" style="display: flex; align-items: center; justify-content: center; width: 100%; padding: 0.65rem 0.75rem; background: #16A34A; color: #FFFFFF; font-size: 0.82rem; font-weight: 700; border-radius: 9999px; text-decoration: none; text-align: center; box-sizing: border-box;">
+                      ✓ Unlocked — View Course &rarr;
+                    </a>
+                  <?php else: ?>
+                    <button type="button" onclick="unlockCourse('<?= e($cid) ?>', '<?= e(addslashes($lc['title'])) ?>')" style="display: flex; align-items: center; justify-content: center; gap: 0.4rem; width: 100%; padding: 0.65rem 0.75rem; background: var(--gold-dk); color: #FFFFFF; font-size: 0.82rem; font-weight: 700; border-radius: 9999px; border: none; cursor: pointer; transition: background 0.2s;" onmouseenter="this.style.background='var(--gold)';" onmouseleave="this.style.background='var(--gold-dk)';">
+                      <span>🔓</span> Unlock for <?= $cost ?> Credits
+                    </button>
+                  <?php endif; ?>
+                </div>
+              </div>
+              <?php endforeach; ?>
+            </div>
+
+            <!-- Recent Earnings History Log -->
+            <h3 style="font-family: 'Playfair Display', serif; font-size: 1.15rem; font-weight: 700; color: var(--ink); margin-bottom: 1rem;">Recent Earnings History</h3>
+            <?php if (empty($creditsHistory)): ?>
+              <div style="background: var(--white); border: 1px dashed var(--border); border-radius: 12px; padding: 2.5rem 1rem; text-align: center; color: var(--ink-soft); font-size: 0.9rem;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🪙</div>
+                No transactions recorded yet. Keep logging in daily and completing courses!
+              </div>
+            <?php else: ?>
+              <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <?php foreach ($creditsHistory as $tx): 
+                  $cVal = (int) ($tx['credits'] ?? 0);
+                  $isNegative = $cVal < 0 || ($tx['type'] ?? '') === 'course_unlock';
+                  $absVal = abs($cVal);
+                  $badgeBg = match ($tx['type'] ?? '') {
+                      'daily_login'   => '#F4E4C3',
+                      'course_unlock' => '#FEE2E2',
+                      default         => '#DCFCE7',
+                  };
+                  $badgeIcon = match ($tx['type'] ?? '') {
+                      'daily_login'   => '🎁',
+                      'course_unlock' => '🔓',
+                      default         => '🎓',
+                  };
+                ?>
+                <div style="background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+                  <div style="display: flex; align-items: center; gap: 0.85rem;">
+                    <div style="width: 38px; height: 38px; border-radius: 10px; background: <?= $badgeBg ?>; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;">
+                      <?= $badgeIcon ?>
+                    </div>
+                    <div>
+                      <div style="font-size: 0.9rem; font-weight: 600; color: var(--ink);"><?= e($tx['description'] ?? 'Credit Reward') ?></div>
+                      <div style="font-size: 0.75rem; color: var(--ink-soft); margin-top: 0.15rem;"><?= date('M j, Y • g:i A', strtotime($tx['createdAt'] ?? 'now')) ?></div>
+                    </div>
+                  </div>
+                  <div style="font-weight: 700; font-size: 1.05rem; color: <?= $isNegative ? '#DC2626' : '#16A34A' ?>;">
+                    <?= $isNegative ? '-' : '+' ?><?= $absVal ?>
+                  </div>
+                </div>
+                <?php endforeach; ?>
+              </div>
+            <?php endif; ?>
+          </div>
           
         </div>
       </div>
@@ -822,6 +1013,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <script src="../../assets/js/script.js"></script>
 <script>
+  function showToast(msg, type = 'error') {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.className = type;
+    toast.style.display = 'block';
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(function() {
+      toast.style.display = 'none';
+    }, 4500);
+  }
+
+  let pendingUnlockCourseId = null;
+
+  function unlockCourse(courseId, courseTitle) {
+    pendingUnlockCourseId = courseId;
+    const modalText = document.getElementById('unlock-modal-text');
+    if (modalText) {
+      modalText.textContent = 'Are you sure you want to spend 500 Credits to unlock "' + courseTitle + '"?';
+    }
+    const overlay = document.getElementById('unlock-modal-overlay');
+    if (overlay) {
+      overlay.style.display = 'flex';
+    }
+  }
+
+  function closeUnlockModal() {
+    const overlay = document.getElementById('unlock-modal-overlay');
+    if (overlay) {
+      overlay.style.display = 'none';
+    }
+    pendingUnlockCourseId = null;
+  }
+
   function switchTab(tabName) {
     // Switch active buttons
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -850,8 +1075,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     element.classList.add('selected');
     // Update the hidden input value
     document.getElementById('selected_avatar').value = filename;
-    // Update the live preview image
+    // Update the live preview images
     document.getElementById('avatar-preview-img').src = '../../assets/img/avatars/' + filename;
+    const sidebarAvatar = document.getElementById('sidebar-avatar-img');
+    if (sidebarAvatar) sidebarAvatar.src = '../../assets/img/avatars/' + filename;
     
     // Hide the grid after selecting
     document.getElementById('avatar-dropdown').classList.remove('active');
@@ -863,6 +1090,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     document.getElementById('selected_avatar').value = defaultFilename;
     // Update preview img
     document.getElementById('avatar-preview-img').src = '../../assets/img/avatars/' + defaultFilename;
+    const sidebarAvatar = document.getElementById('sidebar-avatar-img');
+    if (sidebarAvatar) sidebarAvatar.src = '../../assets/img/avatars/' + defaultFilename;
     // Reset selected thumbnail highlighting
     document.querySelectorAll('.avatar-thumb').forEach(function(opt) {
       opt.classList.remove('selected');
@@ -1069,6 +1298,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
     });
 
+    const confirmBtn = document.getElementById('unlock-modal-confirm-btn');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', function() {
+        if (!pendingUnlockCourseId) return;
+        const targetCourseId = pendingUnlockCourseId;
+        closeUnlockModal();
+
+        fetch('../../api/unlock_course.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ course_id: targetCourseId })
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            showToast(data.message || '🎉 Course unlocked successfully!', 'success');
+            setTimeout(function() {
+              window.location.reload();
+            }, 1500);
+          } else {
+            showToast(data.message || 'Insufficient credits to unlock course.', 'error');
+          }
+        })
+        .catch(err => {
+          console.error('Unlock error:', err);
+          showToast('Network error. Please try again.', 'error');
+        });
+      });
+    }
+
     const alerts = document.querySelectorAll('.profile-alert');
     alerts.forEach(function(alert) {
       if (alert.classList.contains('profile-alert-success')) {
@@ -1082,5 +1341,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     });
   });
 </script>
+
+<!-- Custom Confirm Unlock Modal -->
+<div id="unlock-modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(13, 17, 23, 0.45); backdrop-filter: blur(4px); z-index: 999999; align-items: center; justify-content: center;">
+  <div style="background: var(--white); border-radius: 20px; padding: 2rem; width: 90%; max-width: 440px; box-shadow: 0 20px 50px rgba(0,0,0,0.25); box-sizing: border-box; border: 1px solid var(--border);" id="unlock-modal-card">
+    <h3 style="font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 700; color: var(--ink); margin: 0 0 0.75rem 0;">Confirm Unlock</h3>
+    <p id="unlock-modal-text" style="font-size: 0.92rem; color: var(--ink-mid); line-height: 1.5; margin: 0 0 1.75rem 0;">
+      Are you sure you want to spend 500 Credits to unlock this course?
+    </p>
+    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem;">
+      <button type="button" onclick="closeUnlockModal()" style="background: transparent; border: none; font-size: 0.9rem; font-weight: 600; color: var(--ink-soft); cursor: pointer; padding: 0.65rem 1.25rem; border-radius: 9999px; transition: background 0.15s, color 0.15s;" onmouseenter="this.style.background='var(--input-bg)'; this.style.color='var(--ink)';" onmouseleave="this.style.background='transparent'; this.style.color='var(--ink-soft)';">
+        Cancel
+      </button>
+      <button type="button" id="unlock-modal-confirm-btn" style="background: var(--gold-dk); color: #FFFFFF; border: none; font-size: 0.9rem; font-weight: 700; cursor: pointer; padding: 0.65rem 1.6rem; border-radius: 9999px; box-shadow: 0 4px 12px rgba(168,115,42,0.25); transition: background 0.2s, transform 0.15s;" onmouseenter="this.style.background='var(--gold)';" onmouseleave="this.style.background='var(--gold-dk)';">
+        Confirm
+      </button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
