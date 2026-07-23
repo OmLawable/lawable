@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/firestore.php';
+require_once __DIR__ . '/../includes/certificates.php';
 start_secure_session();
 
 if (!is_logged_in()) {
@@ -190,7 +191,7 @@ if (!$is_org) {
 $stats = [
     'enrolled'      => 0,
     'completed'     => 0,
-    'certificates'  => 0,
+    'credits'       => 0,
     'hours_studied' => 0,
 ];
 if (!$is_org) {
@@ -199,9 +200,19 @@ if (!$is_org) {
         if ((float) $ec['progress_percentage'] >= 100.0) $stats['completed']++;
     }
 
-    // Certificates count
-    $certs = $db->query('certificates', [['studentId', 'EQUAL', $student_id]], 100);
-    $stats['certificates'] = count($certs);
+    // Total Credits from student profile
+    if (!isset($sp) || $sp === null) {
+        $sp = $db->get('students', $student_id);
+    }
+    $stats['credits'] = (int) ($sp['credits'] ?? 0);
+
+    // Auto-generate certificates for any completed course and load user certificates
+    foreach ($enrolled_courses as $ec) {
+        if ((float) $ec['progress_percentage'] >= 100.0) {
+            check_and_generate_certificate($student_id, $ec['id']);
+        }
+    }
+    $user_certs = get_student_certificates($student_id);
 
     // Estimated hours studied (sum of lesson durations * progress pct)
     $total_minutes = 0;
@@ -1454,26 +1465,26 @@ if (!$is_org && !$is_teacher) {
 
     <?php /* ── Quick Stats Row ── */ ?>
     <div class="stat-row">
-      <div class="stat-card">
+      <div class="stat-card" onclick="window.location='my-learnings.php?filter=all'" style="cursor:pointer; transition: transform 0.2s;" onmouseenter="this.style.transform='translateY(-2px)';" onmouseleave="this.style.transform='none';">
         <div class="stat-card-header">
           <div class="stat-card-icon enrolled">📚</div>
         </div>
         <div class="stat-card-label">Courses Enrolled</div>
         <div class="stat-card-value"><?= $stats['enrolled'] ?></div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" onclick="window.location='my-learnings.php?filter=completed'" style="cursor:pointer; transition: transform 0.2s;" onmouseenter="this.style.transform='translateY(-2px)';" onmouseleave="this.style.transform='none';">
         <div class="stat-card-header">
           <div class="stat-card-icon completed">✅</div>
         </div>
         <div class="stat-card-label">Courses Completed</div>
         <div class="stat-card-value"><?= $stats['completed'] ?></div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" onclick="window.location='student/edit-profile.php?tab=credits'" style="cursor:pointer; transition: transform 0.2s;" onmouseenter="this.style.transform='translateY(-2px)';" onmouseleave="this.style.transform='none';">
         <div class="stat-card-header">
-          <div class="stat-card-icon cert">🏅</div>
+          <div class="stat-card-icon cert">🪙</div>
         </div>
-        <div class="stat-card-label">Certificates Earned</div>
-        <div class="stat-card-value"><?= $stats['certificates'] ?></div>
+        <div class="stat-card-label">Total Credits</div>
+        <div class="stat-card-value"><?= number_format($stats['credits']) ?></div>
       </div>
       <div class="stat-card">
         <div class="stat-card-header">
@@ -1707,18 +1718,22 @@ if (!$is_org && !$is_teacher) {
       <?php /* ── Certificates / Achievements ── */ ?>
       <div class="dash-card">
         <div class="dash-card-header">
-          <h3>🏅 Certificates & Achievements</h3>
+          <h3>📜 Earned Certificates</h3>
+          <?php if (!empty($user_certs)): ?>
+            <a href="my-learnings.php?filter=certificates" class="dash-card-link">View all (<?= count($user_certs) ?>) →</a>
+          <?php endif; ?>
         </div>
         <div class="cert-row">
-          <?php if (empty($certificates)): ?>
-            <div class="cert-empty">Complete a course to earn your first certificate 🎯</div>
+          <?php if (empty($user_certs)): ?>
+            <div class="cert-empty">Complete 100% of a course to earn your official certificate 🎯</div>
           <?php else: ?>
-            <?php foreach ($certificates as $cert): ?>
-            <div class="cert-card">
+            <?php foreach (array_slice($user_certs, 0, 3) as $cert): ?>
+            <div class="cert-card" onclick="window.open('student/view-certificate.php?id=<?= e($cert['__id'] ?? $cert['id']) ?>', '_blank')" style="cursor:pointer; transition: transform 0.2s;" onmouseenter="this.style.transform='translateY(-2px)';" onmouseleave="this.style.transform='none';">
               <div class="cert-icon">🏅</div>
-              <div class="cert-course"><?= e($cert['course_title']) ?></div>
-              <div class="cert-number"><?= e($cert['certificate_number']) ?></div>
-              <div style="font-size:0.62rem;color:var(--ink-soft);margin-top:0.2rem;"><?= date('M Y', strtotime($cert['issued_at'])) ?></div>
+              <div class="cert-course" style="font-weight:700; color:var(--ink); line-height:1.25;"><?= e($cert['courseTitle'] ?? 'Course Certificate') ?></div>
+              <div class="cert-number" style="font-family:monospace; color:var(--gold-dk); font-weight:600; margin-top:0.25rem; font-size:0.72rem;"><?= e($cert['certNumber'] ?? '') ?></div>
+              <div style="font-size:0.68rem; color:var(--ink-soft); margin-top:0.25rem;"><?= date('M j, Y', strtotime($cert['issuedAt'] ?? 'now')) ?></div>
+              <div style="margin-top:0.4rem; font-size:0.75rem; color:var(--gold-dk); font-weight:700;">View & Print Certificate →</div>
             </div>
             <?php endforeach; ?>
           <?php endif; ?>

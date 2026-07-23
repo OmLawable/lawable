@@ -82,11 +82,6 @@ try {
         throw new RuntimeException('This account is inactive. Please contact support.');
     }
 
-    // ── Update last login timestamp in Firestore ─────────────────────────
-    $db->update($collection, $uid, [
-        'lastLogin' => FirestoreClient::now()
-    ]);
-
     // ── Write session (identical structure, ID is now firebase_uid string) ──
     $_SESSION['user'] = [
         'id'    => $uid, // Store firebase_uid string instead of MySQL int ID
@@ -99,6 +94,17 @@ try {
     if ($collection === 'organizations') {
         $_SESSION['user']['organization_name'] = $user['organizationName'] ?? '';
     }
+
+    session_write_close();
+
+    // Update lastLogin timestamp in shutdown function so response is not delayed by network round-trip
+    register_shutdown_function(function() use ($db, $collection, $uid) {
+        try {
+            $db->update($collection, $uid, [
+                'lastLogin' => FirestoreClient::now()
+            ]);
+        } catch (Throwable $e) {}
+    });
 
     // ── Role-based redirect ───────────────────────────────────────────────
     $redirect = match ($role) {
