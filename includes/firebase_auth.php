@@ -16,8 +16,21 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use Kreait\Firebase\Factory;
 use Kreait\Firebase\Exception\Auth\FailedToVerifyToken;
 
-const FIREBASE_SERVICE_ACCOUNT_PATH = 'C:\\xampp\\firebase\\lawable-service-account.json';
-const FIREBASE_PROJECT_ID           = 'lawable-9c1e0';
+if (!defined('FIREBASE_PROJECT_ID')) {
+    define('FIREBASE_PROJECT_ID', 'lawable-9c1e0');
+}
+if (!defined('FIREBASE_SERVICE_ACCOUNT_PATH')) {
+    $saPath = __DIR__ . '/../firebase-service-account.json';
+    if (!file_exists($saPath)) {
+        $saPathAbove = __DIR__ . '/../../firebase-service-account.json';
+        if (file_exists($saPathAbove)) {
+            $saPath = $saPathAbove;
+        } elseif (file_exists('C:\\xampp\\firebase\\lawable-service-account.json')) {
+            $saPath = 'C:\\xampp\\firebase\\lawable-service-account.json';
+        }
+    }
+    define('FIREBASE_SERVICE_ACCOUNT_PATH', $saPath);
+}
 
 /**
  * Returns a configured Firebase Factory instance (singleton-style).
