@@ -1276,6 +1276,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 
   document.addEventListener('DOMContentLoaded', function() {
+    // Switch active tab if ?tab= parameter is provided
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam && document.getElementById('tab-' + tabParam)) {
+      switchTab(tabParam);
+    }
+
     // Initialize custom multiselects
     initMultiselect('areas');
     initMultiselect('skills');

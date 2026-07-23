@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/firestore.php';
+require_once __DIR__ . '/../includes/certificates.php';
 start_secure_session();
 
 $user       = current_user();
@@ -13,9 +14,11 @@ $isAdmin    = $isLoggedIn && ($user['role'] ?? '') === 'admin';
 $db = get_firestore();
 
 $enrolled_courses = [];
+$user_certs       = [];
 $total_enrolled   = 0;
 $in_progress_cnt  = 0;
 $completed_cnt    = 0;
+$cert_cnt         = 0;
 
 if ($isStudent) {
     $student_id  = (string) $user['id'];
@@ -37,6 +40,7 @@ if ($isStudent) {
 
         if ($pct >= 100.0) {
             $completed_cnt++;
+            check_and_generate_certificate($student_id, $cId);
         } else {
             $in_progress_cnt++;
         }
@@ -66,6 +70,9 @@ if ($isStudent) {
         if ($cmp !== 0) return $cmp;
         return strcmp($b['enrolled_at'], $a['enrolled_at']);
     });
+
+    $user_certs = get_student_certificates($student_id);
+    $cert_cnt   = count($user_certs);
 }
 ?>
 <!DOCTYPE html>
@@ -475,6 +482,7 @@ if ($isStudent) {
           <button class="learnings-tab active" onclick="filterLearnings('all', this)">All Courses (<?= $total_enrolled ?>)</button>
           <button class="learnings-tab" onclick="filterLearnings('in_progress', this)">In Progress (<?= $in_progress_cnt ?>)</button>
           <button class="learnings-tab" onclick="filterLearnings('completed', this)">Completed (<?= $completed_cnt ?>)</button>
+          <button class="learnings-tab" onclick="filterLearnings('certificates', this)">Certificates Earned (<?= $cert_cnt ?>)</button>
         </div>
 
         <div class="learnings-grid" id="learningsGrid">
@@ -542,6 +550,85 @@ if ($isStudent) {
           </div>
           <?php endforeach; ?>
         </div>
+
+        <!-- Certificates Earned Tabular View -->
+        <div id="certificatesTableWrap" style="display: none; background: var(--paper); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow); overflow: hidden; margin-top: 1rem;">
+          <div style="overflow-x: auto;">
+            <?php if (empty($user_certs)): ?>
+              <div style="text-align: center; padding: 3.5rem 1.5rem; color: var(--ink-soft);">
+                <div style="font-size: 3rem; margin-bottom: 0.75rem;">📜</div>
+                <h3 style="font-family: 'Playfair Display', serif; font-size: 1.25rem; color: var(--ink); margin-bottom: 0.35rem;">No Certificates Earned Yet</h3>
+                <p style="font-size: 0.88rem; max-width: 440px; margin: 0 auto 1.25rem;">Complete 100% of any course to earn your official verified Lawable Certificate of Accomplishment.</p>
+                <a href="courses.php" class="empty-btn" style="text-decoration: none; display: inline-flex;">Explore Catalog →</a>
+              </div>
+            <?php else: ?>
+              <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
+                <thead>
+                  <tr style="background: var(--cream); border-bottom: 1px solid var(--border);">
+                    <th style="padding: 1rem 1.25rem; font-weight: 700; color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Certificate ID</th>
+                    <th style="padding: 1rem 1.25rem; font-weight: 700; color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Course Title</th>
+                    <th style="padding: 1rem 1.25rem; font-weight: 700; color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Category & Level</th>
+                    <th style="padding: 1rem 1.25rem; font-weight: 700; color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Organization</th>
+                    <th style="padding: 1rem 1.25rem; font-weight: 700; color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Issued Date</th>
+                    <th style="padding: 1rem 1.25rem; font-weight: 700; color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; text-align: right;">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($user_certs as $cert): 
+                    $cOrgName = $cert['organizationName'] ?? '';
+                    if (empty($cOrgName) || $cOrgName === 'Lawable Academy') {
+                        if (!empty($cert['courseId'])) {
+                            $cDoc = $db->get('courses', $cert['courseId']);
+                            if ($cDoc) {
+                                if (!empty($cDoc['organizationId'])) {
+                                    $oDoc = $db->get('organizations', $cDoc['organizationId']);
+                                    if ($oDoc && !empty($oDoc['organizationName'])) {
+                                        $cOrgName = $oDoc['organizationName'];
+                                    }
+                                }
+                                if (empty($cOrgName) && !empty($cDoc['organizationName'])) {
+                                    $cOrgName = $cDoc['organizationName'];
+                                }
+                            }
+                        }
+                    }
+                    if (empty($cOrgName)) {
+                        $cOrgName = 'Lawable Academy';
+                    }
+                  ?>
+                    <tr style="border-bottom: 1px solid var(--border); transition: background 0.15s;" onmouseenter="this.style.background='var(--sky)';" onmouseleave="this.style.background='transparent';">
+                      <td style="padding: 1.1rem 1.25rem; font-weight: 700; font-family: monospace; color: var(--gold-dk);">
+                        📜 <?= e($cert['certNumber'] ?? '') ?>
+                      </td>
+                      <td style="padding: 1.1rem 1.25rem; font-weight: 700; color: var(--ink); font-family: 'Playfair Display', serif; font-size: 1.02rem;">
+                        <?= e($cert['courseTitle'] ?? 'Course Certificate') ?>
+                      </td>
+                      <td style="padding: 1.1rem 1.25rem; color: var(--ink-mid);">
+                        <span style="display: inline-block; background: var(--gold-lt); color: var(--gold-dk); font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 4px; text-transform: uppercase;">
+                          <?= e($cert['category'] ?? 'General Law') ?>
+                        </span>
+                        <div style="font-size: 0.78rem; color: var(--ink-soft); font-weight: 500; margin-top: 0.35rem;">
+                          <?= e($cert['difficulty'] ?? 'Advanced') ?> Level
+                        </div>
+                      </td>
+                      <td style="padding: 1.1rem 1.25rem; color: var(--ink); font-weight: 600;">
+                        🏛 <?= e($cOrgName) ?>
+                      </td>
+                      <td style="padding: 1.1rem 1.25rem; color: var(--ink-mid); white-space: nowrap;">
+                        <?= date('M j, Y', strtotime($cert['issuedAt'] ?? 'now')) ?>
+                      </td>
+                      <td style="padding: 1.1rem 1.25rem; text-align: right; white-space: nowrap;">
+                        <a href="student/view-certificate.php?id=<?= e($cert['__id'] ?? $cert['id']) ?>" target="_blank" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.55rem 1.1rem; background: var(--gold-dk); color: #FFFFFF; font-size: 0.82rem; font-weight: 700; border-radius: 9999px; text-decoration: none; transition: background 0.2s;" onmouseenter="this.style.background='var(--gold)';" onmouseleave="this.style.background='var(--gold-dk)';">
+                          <span>🖨️</span> View & Print
+                        </a>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            <?php endif; ?>
+          </div>
+        </div>
       <?php endif; ?>
     </div>
 
@@ -572,17 +659,39 @@ function filterLearnings(status, btn) {
   document.querySelectorAll('#learningsTabs .learnings-tab').forEach(function(t) {
     t.classList.remove('active');
   });
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
 
-  var cards = document.querySelectorAll('#learningsGrid .learning-card');
-  cards.forEach(function(card) {
-    if (status === 'all' || card.dataset.status === status) {
-      card.classList.remove('is-hidden');
-    } else {
-      card.classList.add('is-hidden');
-    }
-  });
+  var grid = document.getElementById('learningsGrid');
+  var certTable = document.getElementById('certificatesTableWrap');
+
+  if (status === 'certificates') {
+    if (grid) grid.style.display = 'none';
+    if (certTable) certTable.style.display = 'block';
+  } else {
+    if (certTable) certTable.style.display = 'none';
+    if (grid) grid.style.display = 'grid';
+
+    var cards = document.querySelectorAll('#learningsGrid .learning-card');
+    cards.forEach(function(card) {
+      if (status === 'all' || card.dataset.status === status) {
+        card.classList.remove('is-hidden');
+      } else {
+        card.classList.add('is-hidden');
+      }
+    });
+  }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+  var urlParams = new URLSearchParams(window.location.search);
+  var filterParam = urlParams.get('filter') || urlParams.get('tab');
+  if (filterParam) {
+    var targetBtn = document.querySelector('#learningsTabs .learnings-tab[onclick*="' + filterParam + '"]');
+    if (targetBtn) {
+      filterLearnings(filterParam, targetBtn);
+    }
+  }
+});
 </script>
 </body>
 </html>

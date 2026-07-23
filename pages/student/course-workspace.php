@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/firestore.php';
 require_once __DIR__ . '/../../includes/credits.php';
+require_once __DIR__ . '/../../includes/certificates.php';
 
 start_secure_session();
 if (!is_logged_in()) {
@@ -128,9 +129,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_completed'])) {
 
             $db->set('progress', $progress, $progressId);
 
-            // Award course completion credits if 100% completed
+            // Award course completion credits and generate certificate if 100% completed
             if ($percentage >= 100.0) {
                 check_and_award_course_completion_credit((string) $user['id'], $courseId);
+                check_and_generate_certificate((string) $user['id'], $courseId);
             }
             
             // Redirect to reload page

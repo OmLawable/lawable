@@ -622,10 +622,9 @@ $turnstileSiteKey = get_turnstile_site_key();
 
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <script type="module">
-    /* ─── Firebase Auth SDK ────────────────────────────────────────────── */
     import { initializeApp }                              from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
     import { getAuth, signInWithEmailAndPassword,
-             createUserWithEmailAndPassword }             from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
+             createUserWithEmailAndPassword, signOut }   from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
 
     const firebaseConfig = {
       apiKey:            'AIzaSyDgZMSypU6KKt8t_NbcpRtgQDttjV4JXtw',
@@ -637,6 +636,9 @@ $turnstileSiteKey = get_turnstile_site_key();
     };
     const fbApp  = initializeApp(firebaseConfig);
     const auth   = getAuth(fbApp);
+
+    // Silent background sign out of Firebase Client SDK when on login page
+    try { signOut(auth).catch(() => {}); } catch(_) {}
 
     /* ═══════════════════════════════════════════════
        UI Helpers: tabs, toggles, validation
@@ -862,8 +864,7 @@ $turnstileSiteKey = get_turnstile_site_key();
         const data = await res.json();
 
         if (data.success) {
-          showToast(data.message, 'success');
-          setTimeout(() => { window.location.href = data.redirect || '/lawable/pages/dashboard.php'; }, 600);
+          window.location.href = data.redirect || '/lawable/pages/dashboard.php';
         } else {
           showToast(data.message || 'Login failed.', 'error');
           btn.disabled = false;
@@ -875,6 +876,10 @@ $turnstileSiteKey = get_turnstile_site_key();
         btn.textContent = 'Sign in';
       }
     });
+
+    <?php if ($flash): ?>
+      showToast(<?= json_encode($flash['message']) ?>, <?= json_encode($flash['type'] ?? 'success') ?>);
+    <?php endif; ?>
 
     /* ═══════════════════════════════════════════════
        SIGN UP — Firebase Auth → PHP profile store
