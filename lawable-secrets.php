@@ -30,6 +30,6 @@ return [
     | Keep this value confidential.
     |
     */
-    'turnstile_secret_key' => '0x4AAAAAADt9peaNAyOJHM8e',
+    'turnstile_secret_key' => getenv('TURNSTILE_SECRET') ?: '0x4AAAAAADt9pQgqddw_SbYpBbJqkyKXCF0',
 
 ];
