@@ -510,7 +510,7 @@ $turnstileSiteKey = get_turnstile_site_key();
           <label>Verify you're human</label>
           <div class="turnstile-wrap" id="si-turnstile-widget" data-sitekey="<?= e($turnstileSiteKey) ?>">
             <?php if ($turnstileSiteKey): ?>
-              <div class="cf-turnstile" data-sitekey="<?= e($turnstileSiteKey) ?>" data-theme="light" data-callback="onTurnstileSuccess" data-expired-callback="onTurnstileExpired" data-error-callback="onTurnstileError"></div>
+              <div class="cf-turnstile" data-sitekey="<?= e($turnstileSiteKey) ?>" data-action="turnstile-spin-v2" data-theme="light" data-callback="onTurnstileSuccess" data-expired-callback="onTurnstileExpired" data-error-callback="onTurnstileError"></div>
             <?php else: ?>
               <p class="field-status">Turnstile is not configured yet.</p>
             <?php endif; ?>
@@ -682,6 +682,7 @@ $turnstileSiteKey = get_turnstile_site_key();
       try {
         suTurnstileWidgetId = turnstile.render('#su-turnstile-container', {
           sitekey: siteKey,
+          action: 'turnstile-spin-v2',
           callback: (token) => {
             const input = $('su-turnstile-token');
             if (input) input.value = token;
