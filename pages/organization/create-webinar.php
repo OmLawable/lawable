@@ -22,14 +22,18 @@ if ($is_org) {
 } elseif ($is_teacher) {
     try {
         $teacherDoc = $db->get('teachers', $user['id']);
-        $orgId = $teacherDoc['organizationId'] ?? '';
-        if ($orgId === '') {
-            redirect('pages/dashboard.php');
+        $teacherOrgId = $teacherDoc['organizationId'] ?? '';
+        if (!empty($teacherOrgId) && $teacherOrgId !== 'none') {
+            $orgId = $teacherOrgId;
+            $orgDoc = $db->get('organizations', $orgId);
+            $orgName = $orgDoc['organizationName'] ?? $orgDoc['organization_name'] ?? $orgDoc['contactPerson'] ?? 'Organization';
+        } else {
+            $orgId = 'none';
+            $orgName = 'Independent Instructor';
         }
-        $orgDoc = $db->get('organizations', $orgId);
-        $orgName = $orgDoc['organization_name'] ?? $orgDoc['name'] ?? 'Organization';
     } catch (Throwable $e) {
-        redirect('pages/dashboard.php');
+        $orgId = 'none';
+        $orgName = 'Independent Instructor';
     }
 } else {
     redirect('pages/dashboard.php');
@@ -96,34 +100,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'status'           => $status,
             'organizationId'   => $orgId,
             'organizationName' => $orgName,
+            'teacherId'        => $is_teacher ? $user['id'] : '',
+            'teacherName'      => $is_teacher ? ($user['name'] ?? '') : '',
+            'hostName'         => $user['name'] ?? ($orgName !== '' ? $orgName : 'Instructor'),
+            'createdBy'        => $user['id'],
             'createdAt'        => $now,
             'updatedAt'        => $now
         ];
 
         $db->set('webinars', $webinarData, $webinarId);
         
-        // Send notifications to affiliated teachers if published
+        // Send notifications if published
         if ($status === 'published') {
             try {
-                $teachers = $db->query('teachers', [['organizationId', 'EQUAL', $orgId]], 100);
-                if (!empty($teachers)) {
-                    foreach ($teachers as $t) {
-                        // Skip the teacher who is scheduling the webinar
-                        if ($t['__id'] === $user['id']) {
-                            continue;
+                if ($orgId !== 'none' && !empty($orgId)) {
+                    $teachers = $db->query('teachers', [['organizationId', 'EQUAL', $orgId]], 100);
+                    if (!empty($teachers)) {
+                        foreach ($teachers as $t) {
+                            if ($t['__id'] === $user['id']) {
+                                continue;
+                            }
+                            $msgId = 'msg_' . bin2hex(random_bytes(6));
+                            $msgDoc = [
+                                'senderId'    => $user['id'],
+                                'senderName'  => $user['name'] ?? $orgName,
+                                'receiverId'  => $t['__id'],
+                                'courseId'    => '',
+                                'courseTitle' => 'Webinar Notification',
+                                'messageText' => "A new webinar has been scheduled:\n\nTitle: " . $title . "\nDate & Time: " . date('d-m-Y • h:i A', strtotime($dateTime)) . "\nMeet Link: " . $meetLink . "\n\nDescription:\n" . $description,
+                                'isRead'      => false,
+                                'createdAt'   => date('c')
+                            ];
+                            $db->set('messages', $msgDoc, $msgId);
                         }
-                        $msgId = 'msg_' . bin2hex(random_bytes(6));
-                        $msgDoc = [
-                            'senderId'    => $orgId,
-                            'senderName'  => $orgName,
-                            'receiverId'  => $t['__id'],
-                            'courseId'    => '',
-                            'courseTitle' => 'Webinar Notification',
-                            'messageText' => "A new webinar has been scheduled by our organization:\n\nTitle: " . $title . "\nDate & Time: " . date('d-m-Y • h:i A', strtotime($dateTime)) . "\nMeet Link: " . $meetLink . "\n\nDescription:\n" . $description,
-                            'isRead'      => false,
-                            'createdAt'   => date('c')
-                        ];
-                        $db->set('messages', $msgDoc, $msgId);
+                    }
+                } elseif ($is_teacher) {
+                    $tCourses = $db->query('courses', [['teacherId', 'EQUAL', $user['id']]], 100);
+                    $notifiedStudents = [];
+                    foreach ($tCourses as $cDoc) {
+                        $cId = $cDoc['__id'];
+                        $enrolls = $db->query('enrollments', [['courseId', 'EQUAL', $cId]], 100);
+                        foreach ($enrolls as $en) {
+                            $stId = $en['studentId'] ?? '';
+                            if ($stId !== '' && !isset($notifiedStudents[$stId])) {
+                                $notifiedStudents[$stId] = true;
+                                $msgId = 'msg_' . bin2hex(random_bytes(6));
+                                $msgDoc = [
+                                    'senderId'    => $user['id'],
+                                    'senderName'  => $user['name'] ?? 'Instructor',
+                                    'receiverId'  => $stId,
+                                    'courseId'    => $cId,
+                                    'courseTitle' => $cDoc['title'] ?? 'Live Webinar',
+                                    'messageText' => "Your instructor " . ($user['name'] ?? '') . " has scheduled a live webinar:\n\nTitle: " . $title . "\nDate & Time: " . date('d-m-Y • h:i A', strtotime($dateTime)) . "\nMeet Link: " . $meetLink . "\n\nDescription:\n" . $description,
+                                    'isRead'      => false,
+                                    'createdAt'   => date('c')
+                                ];
+                                $db->set('messages', $msgDoc, $msgId);
+                            }
+                        }
                     }
                 }
             } catch (Throwable $notifErr) {
@@ -208,7 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <span class="profile-card-icon" aria-hidden="true">🎙️</span>
             <div>
               <h1>Schedule New Webinar</h1>
-              <p style="color:var(--ink-soft);font-size:0.88rem;margin-top:0.2rem;">Setup a Google Meet session for students under <?= e($orgName) ?></p>
+              <p style="color:var(--ink-soft);font-size:0.88rem;margin-top:0.2rem;">Setup a Google Meet session for students <?= ($orgId !== 'none' && !empty($orgName) && $orgName !== 'Independent Instructor') ? 'under ' . e($orgName) : 'as an Independent Instructor' ?></p>
             </div>
           </div>
 

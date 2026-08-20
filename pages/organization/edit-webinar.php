@@ -22,14 +22,18 @@ if ($is_org) {
 } elseif ($is_teacher) {
     try {
         $teacherDoc = $db->get('teachers', $user['id']);
-        $orgId = $teacherDoc['organizationId'] ?? '';
-        if ($orgId === '') {
-            redirect('pages/dashboard.php');
+        $teacherOrgId = $teacherDoc['organizationId'] ?? '';
+        if (!empty($teacherOrgId) && $teacherOrgId !== 'none') {
+            $orgId = $teacherOrgId;
+            $orgDoc = $db->get('organizations', $orgId);
+            $orgName = $orgDoc['organizationName'] ?? $orgDoc['organization_name'] ?? $orgDoc['contactPerson'] ?? 'Organization';
+        } else {
+            $orgId = 'none';
+            $orgName = 'Independent Instructor';
         }
-        $orgDoc = $db->get('organizations', $orgId);
-        $orgName = $orgDoc['organization_name'] ?? $orgDoc['name'] ?? 'Organization';
     } catch (Throwable $e) {
-        redirect('pages/dashboard.php');
+        $orgId = 'none';
+        $orgName = 'Independent Instructor';
     }
 } else {
     redirect('pages/dashboard.php');
@@ -47,7 +51,17 @@ if (!$webinar) {
 }
 
 // Verify ownership
-if (($webinar['organizationId'] ?? '') !== $orgId) {
+$isOwner = false;
+if ($is_org && ($webinar['organizationId'] ?? '') === $user['id']) {
+    $isOwner = true;
+} elseif ($is_teacher) {
+    if (($webinar['teacherId'] ?? '') === $user['id'] || ($webinar['createdBy'] ?? '') === $user['id']) {
+        $isOwner = true;
+    } elseif ($orgId !== 'none' && ($webinar['organizationId'] ?? '') === $orgId) {
+        $isOwner = true;
+    }
+}
+if (!$isOwner) {
     redirect('pages/organization/manage-webinars.php');
 }
 
