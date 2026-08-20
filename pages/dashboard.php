@@ -80,6 +80,8 @@ $org_courses_count = 0;
 $org_total_students = 0;
 $org_recent_courses = [];
 $org_teachers_count = 0;
+$course_enrollment_pie = [];
+$category_courses_pie = [];
 
 if ($is_org || $is_teacher) {
     $filter_field = $is_teacher ? 'teacherId' : 'organizationId';
@@ -89,10 +91,31 @@ if ($is_org || $is_teacher) {
 
     if (!empty($org_courses)) {
         $org_courses_count = count($org_courses);
-        foreach ($org_courses as $c) {
-            $org_total_students += (int) ($c['enrollment_count'] ?? 0);
+
+        // Fetch all enrollments to accurately compute per-course student enrollments
+        $all_enrollments = $db->query('enrollments', [], 1000);
+        $enrollment_by_course = [];
+        foreach ($all_enrollments as $e) {
+            $cId = $e['courseId'] ?? '';
+            if ($cId !== '') {
+                $enrollment_by_course[$cId] = ($enrollment_by_course[$cId] ?? 0) + 1;
+            }
         }
-        
+
+        foreach ($org_courses as $c) {
+            $cId = $c['__id'] ?? '';
+            $cnt = $enrollment_by_course[$cId] ?? (int)($c['enrollment_count'] ?? 0);
+            $org_total_students += $cnt;
+
+            $course_enrollment_pie[] = [
+                'label' => $c['title'] ?? 'Untitled Course',
+                'value' => $cnt
+            ];
+
+            $cat = !empty($c['category']) ? $c['category'] : 'General Law';
+            $category_courses_pie[$cat] = ($category_courses_pie[$cat] ?? 0) + 1;
+        }
+
         usort($org_courses, function($a, $b) {
             return strcmp($b['createdAt'] ?? '', $a['createdAt'] ?? '');
         });
@@ -316,20 +339,49 @@ if ($is_teacher) {
     }
 }
 
-if ($is_org || ($is_teacher && $teacher_org_id !== '')) {
+if ($is_org) {
     try {
-        $targetOrgId = $is_org ? $student_id : $teacher_org_id;
         $org_webinars = $db->query('webinars', [
-            ['organizationId', 'EQUAL', $targetOrgId]
+            ['organizationId', 'EQUAL', $student_id]
         ], 100);
-        
-        // If teacher, filter to show only published webinars
-        if ($is_teacher && !empty($org_webinars)) {
-            $org_webinars = array_filter($org_webinars, function($w) {
-                return ($w['status'] ?? 'draft') === 'published';
+        if (!empty($org_webinars)) {
+            usort($org_webinars, function($a, $b) {
+                return strcmp($a['dateTime'] ?? '', $b['dateTime'] ?? '');
             });
         }
+    } catch (Throwable $e) {
+        // Ignore
+    }
+} elseif ($is_teacher) {
+    try {
+        $webinarMap = [];
+        
+        // Webinars created by this teacher
+        $teacherWebinars = $db->query('webinars', [
+            ['teacherId', 'EQUAL', $student_id]
+        ], 100);
+        foreach ($teacherWebinars as $w) {
+            $webinarMap[$w['__id']] = $w;
+        }
 
+        $createdWebinars = $db->query('webinars', [
+            ['createdBy', 'EQUAL', $student_id]
+        ], 100);
+        foreach ($createdWebinars as $w) {
+            $webinarMap[$w['__id']] = $w;
+        }
+
+        // Webinars for teacher's affiliated organization
+        if (!empty($teacher_org_id) && $teacher_org_id !== 'none') {
+            $orgWebinarsList = $db->query('webinars', [
+                ['organizationId', 'EQUAL', $teacher_org_id]
+            ], 100);
+            foreach ($orgWebinarsList as $w) {
+                $webinarMap[$w['__id']] = $w;
+            }
+        }
+
+        $org_webinars = array_values($webinarMap);
         if (!empty($org_webinars)) {
             usort($org_webinars, function($a, $b) {
                 return strcmp($a['dateTime'] ?? '', $b['dateTime'] ?? '');
@@ -1195,6 +1247,62 @@ if (!$is_org && !$is_teacher) {
       <?php endif; ?>
     </div>
 
+    <!-- Organization Analytics & Pie Charts Section -->
+    <div style="margin-bottom: 2.5rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem; flex-wrap:wrap; gap:1rem;">
+        <div>
+          <h2 style="font-family:'Playfair Display', serif; font-size:1.4rem; color:var(--ink); margin:0;">📊 Organization Analytics</h2>
+          <p style="font-size:0.85rem; color:var(--ink-soft); margin-top:0.2rem;">Visual distribution of student enrollments and created course portfolio.</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.5rem; background:var(--white); padding:0.4rem 0.85rem; border:1px solid var(--border); border-radius:10px;">
+          <span style="font-size:0.8rem; color:var(--ink-soft); font-weight:500;">Filter Period:</span>
+          <select style="border:none; background:transparent; font-family:'Inter',sans-serif; font-size:0.85rem; font-weight:600; color:var(--ink); cursor:pointer; outline:none;">
+            <option value="all">Last 30 days</option>
+            <option value="all_time">All Time</option>
+            <option value="90">Last 90 Days</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1.5rem;" class="analytics-grid">
+        <!-- Pie Chart 1: Student Enrollments per Course -->
+        <div style="background:var(--white); border:1px solid var(--border); border-radius:16px; padding:1.5rem; box-shadow:var(--shadow);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <div>
+              <h3 style="font-family:'Playfair Display', serif; font-size:1.1rem; color:var(--ink); margin:0;">Students Enrolled by Course</h3>
+              <span style="font-size:0.78rem; color:var(--ink-soft);">Enrollment distribution per course</span>
+            </div>
+            <span style="font-size:1.2rem; background:var(--gold-lt); padding:0.35rem 0.6rem; border-radius:8px;">🎓</span>
+          </div>
+          <div style="position:relative; height:240px; display:flex; justify-content:center; align-items:center;">
+            <?php if (empty($course_enrollment_pie)): ?>
+              <div style="text-align:center; color:var(--ink-soft); font-size:0.88rem;">No course enrollments data available</div>
+            <?php else: ?>
+              <canvas id="enrolledStudentsPieChart"></canvas>
+            <?php endif; ?>
+          </div>
+        </div>
+
+        <!-- Bar Chart: Courses Created by Category -->
+        <div style="background:var(--white); border:1px solid var(--border); border-radius:16px; padding:1.5rem; box-shadow:var(--shadow);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <div>
+              <h3 style="font-family:'Playfair Display', serif; font-size:1.1rem; color:var(--ink); margin:0;">Courses Created by Category</h3>
+              <span style="font-size:0.78rem; color:var(--ink-soft);">Portfolio breakdown by subject category</span>
+            </div>
+            <span style="font-size:1.2rem; background:#E0F2FE; padding:0.35rem 0.6rem; border-radius:8px;">📊</span>
+          </div>
+          <div style="position:relative; height:240px; display:flex; justify-content:center; align-items:center;">
+            <?php if (empty($category_courses_pie)): ?>
+              <div style="text-align:center; color:var(--ink-soft); font-size:0.88rem;">No courses created yet</div>
+            <?php else: ?>
+              <canvas id="coursesCategoryBarChart"></canvas>
+            <?php endif; ?>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Teacher Notifications -->
     <?php if ($is_teacher && !empty($teacher_messages)): ?>
     <h3 style="margin-bottom:1rem;font-size:1.1rem;color:var(--ink);">📩 Notifications & Organization Broadcasts</h3>
@@ -1269,7 +1377,7 @@ if (!$is_org && !$is_teacher) {
         </div>
       </div>
       <?php endif; ?>
-      <?php if ($is_org || ($is_teacher && $teacher_org_id !== '')): ?>
+      <?php if ($is_org || $is_teacher): ?>
       <div class="enrolled-card" onclick="window.location='organization/manage-webinars.php'" style="cursor:pointer; transition: transform 0.2s; padding:1.25rem;">
         <div class="enrolled-thumb" style="background:#FFF9DB; font-size: 1.8rem; display:flex; align-items:center; justify-content:center;">🎙️</div>
         <div class="enrolled-body" style="padding-top:0.75rem;">
@@ -1281,10 +1389,10 @@ if (!$is_org && !$is_teacher) {
     </div>
 
     <!-- Scheduled Webinars -->
-    <?php if ($is_org || ($is_teacher && $teacher_org_id !== '')): ?>
+    <?php if ($is_org || $is_teacher): ?>
     <div class="section-row" style="margin-top: 2rem;">
       <h2>📅 Scheduled Webinars</h2>
-      <?php if (!empty($org_webinars) && $is_org): ?>
+      <?php if (!empty($org_webinars)): ?>
         <a href="organization/manage-webinars.php">Manage Webinars →</a>
       <?php endif; ?>
     </div>
@@ -1295,12 +1403,8 @@ if (!$is_org && !$is_teacher) {
           <div style="text-align:center; padding:3rem; color:var(--ink-soft);">
             <div style="font-size:2.5rem; margin-bottom:0.75rem;">🎙️</div>
             <h3>No webinars scheduled yet</h3>
-            <?php if ($is_org): ?>
-              <p style="font-size:0.85rem; margin-top:0.3rem; margin-bottom:1.25rem;">Schedule a live video webinar to interact with your students.</p>
-              <a href="organization/create-webinar.php" class="btn-primary" style="text-decoration:none; display:inline-flex;">+ Schedule Webinar</a>
-            <?php else: ?>
-              <p style="font-size:0.85rem; margin-top:0.3rem;">There are no webinars scheduled by your organization at this time.</p>
-            <?php endif; ?>
+            <p style="font-size:0.85rem; margin-top:0.3rem; margin-bottom:1.25rem;">Schedule a live video webinar to interact with your students.</p>
+            <a href="organization/create-webinar.php" class="btn-primary" style="text-decoration:none; display:inline-flex;">+ Schedule Webinar</a>
           </div>
         <?php else: ?>
           <table style="width:100%; border-collapse:collapse; font-size:0.88rem; text-align:left;">
@@ -1652,7 +1756,7 @@ if (!$is_org && !$is_teacher) {
         <div class="enrolled-body" style="flex:1; display:flex; flex-direction:column; justify-content:space-between; padding: 1.25rem;">
           <div>
             <span style="font-size:0.7rem; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:0.25rem;">
-              Hosted by <?= e($w['organizationName']) ?>
+              Hosted by <?= e(!empty($w['hostName']) ? $w['hostName'] : (!empty($w['organizationName']) && $w['organizationName'] !== 'none' && $w['organizationName'] !== 'Independent (No Affiliation)' ? $w['organizationName'] : 'Independent Instructor')) ?>
             </span>
             <div class="enrolled-title" style="margin-bottom:0.4rem; font-size:1rem; font-weight:700; color:var(--ink); line-height: 1.3;"><?= e($w['title']) ?></div>
             <p style="font-size:0.8rem; color:var(--ink-soft); line-height:1.4; margin-bottom:1rem; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">
@@ -1802,6 +1906,7 @@ if (!$is_org && !$is_teacher) {
 </div>
 
 <script src="../assets/js/script.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 (function() {
   'use strict';
@@ -1822,6 +1927,117 @@ if (!$is_org && !$is_teacher) {
       xhr.send('student_id=<?= $student_id ?>');
     }
   };
+
+  <?php if ($is_org || $is_teacher): ?>
+  // ── Organization Analytics Pie Charts ──
+  var courseEnrollmentData = <?= json_encode($course_enrollment_pie ?? []) ?>;
+  var categoryCoursesData = <?= json_encode($category_courses_pie ?? []) ?>;
+
+  var colorPalette = ['#C9933A', '#16A34A', '#2563EB', '#7C3AED', '#E11D48', '#D97706', '#0D9488', '#4F46E5'];
+
+  // 1. Enrolled Students Pie Chart
+  var ctxEnrolled = document.getElementById('enrolledStudentsPieChart');
+  if (ctxEnrolled && courseEnrollmentData.length > 0) {
+    var labels1 = courseEnrollmentData.map(function(item) { return item.label; });
+    var dataValues1 = courseEnrollmentData.map(function(item) { return item.value; });
+
+    new Chart(ctxEnrolled.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: labels1,
+        datasets: [{
+          data: dataValues1,
+          backgroundColor: colorPalette.slice(0, labels1.length),
+          borderWidth: 2,
+          borderColor: '#FFFFFF',
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              boxWidth: 12,
+              font: { family: 'Inter', size: 11 },
+              color: '#374151'
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                var val = context.raw || 0;
+                var total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                var pct = total > 0 ? Math.round((val / total) * 100) : 0;
+                return ' ' + context.label + ': ' + val + ' student' + (val === 1 ? '' : 's') + ' (' + pct + '%)';
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // 2. Courses Created Category Bar Chart
+  var ctxCategory = document.getElementById('coursesCategoryBarChart');
+  if (ctxCategory && Object.keys(categoryCoursesData).length > 0) {
+    var catLabels = Object.keys(categoryCoursesData);
+    var catValues = Object.values(categoryCoursesData);
+
+    new Chart(ctxCategory.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: catLabels,
+        datasets: [{
+          label: 'Courses Created',
+          data: catValues,
+          backgroundColor: ['#2563EB', '#C9933A', '#16A34A', '#7C3AED', '#D97706', '#E11D48'].slice(0, catLabels.length),
+          borderRadius: 8,
+          barThickness: 32
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                var val = context.raw || 0;
+                return ' ' + val + ' course' + (val === 1 ? '' : 's');
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              font: { family: 'Inter', size: 10, weight: '500' },
+              color: '#4B5563'
+            }
+          },
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: 'rgba(229,224,216,0.5)',
+              drawBorder: false
+            },
+            ticks: {
+              stepSize: 1,
+              precision: 0,
+              font: { family: 'Inter', size: 10 },
+              color: '#4B5563'
+            }
+          }
+        }
+      }
+    });
+  }
+  <?php endif; ?>
 })();
 </script>
 </body>

@@ -22,14 +22,18 @@ if ($is_org) {
 } elseif ($is_teacher) {
     try {
         $teacherDoc = $db->get('teachers', $user['id']);
-        $orgId = $teacherDoc['organizationId'] ?? '';
-        if ($orgId === '') {
-            redirect('pages/dashboard.php');
+        $teacherOrgId = $teacherDoc['organizationId'] ?? '';
+        if (!empty($teacherOrgId) && $teacherOrgId !== 'none') {
+            $orgId = $teacherOrgId;
+            $orgDoc = $db->get('organizations', $orgId);
+            $orgName = $orgDoc['organizationName'] ?? $orgDoc['organization_name'] ?? $orgDoc['contactPerson'] ?? 'Organization';
+        } else {
+            $orgId = 'none';
+            $orgName = 'Independent Instructor';
         }
-        $orgDoc = $db->get('organizations', $orgId);
-        $orgName = $orgDoc['organization_name'] ?? $orgDoc['name'] ?? 'Organization';
     } catch (Throwable $e) {
-        redirect('pages/dashboard.php');
+        $orgId = 'none';
+        $orgName = 'Independent Instructor';
     }
 } else {
     redirect('pages/dashboard.php');
@@ -53,7 +57,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
             throw new RuntimeException('Webinar not found.');
         }
 
-        if (($webinar['organizationId'] ?? '') !== $orgId) {
+        $canDelete = false;
+        if ($is_org && ($webinar['organizationId'] ?? '') === $user['id']) {
+            $canDelete = true;
+        } elseif ($is_teacher) {
+            if (($webinar['teacherId'] ?? '') === $user['id'] || ($webinar['createdBy'] ?? '') === $user['id']) {
+                $canDelete = true;
+            } elseif ($orgId !== 'none' && ($webinar['organizationId'] ?? '') === $orgId) {
+                $canDelete = true;
+            }
+        }
+        if (!$canDelete) {
             throw new RuntimeException('Unauthorized to delete this webinar.');
         }
 
@@ -64,10 +78,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     }
 }
 
-// Fetch webinars for this organization
-$org_webinars = $db->query('webinars', [
-    ['organizationId', 'EQUAL', $orgId]
-], 200);
+// Fetch webinars for this organization or teacher
+$org_webinars = [];
+if ($is_org) {
+    $org_webinars = $db->query('webinars', [
+        ['organizationId', 'EQUAL', $orgId]
+    ], 200);
+} elseif ($is_teacher) {
+    $webinarMap = [];
+    
+    // Webinars created by this teacher
+    $teacherWebinars = $db->query('webinars', [
+        ['teacherId', 'EQUAL', $user['id']]
+    ], 200);
+    foreach ($teacherWebinars as $w) {
+        $webinarMap[$w['__id']] = $w;
+    }
+
+    $createdWebinars = $db->query('webinars', [
+        ['createdBy', 'EQUAL', $user['id']]
+    ], 200);
+    foreach ($createdWebinars as $w) {
+        $webinarMap[$w['__id']] = $w;
+    }
+
+    // If affiliated, also include organization webinars
+    if ($orgId !== 'none' && !empty($orgId)) {
+        $orgWebinarsList = $db->query('webinars', [
+            ['organizationId', 'EQUAL', $orgId]
+        ], 200);
+        foreach ($orgWebinarsList as $w) {
+            $webinarMap[$w['__id']] = $w;
+        }
+    }
+
+    $org_webinars = array_values($webinarMap);
+}
 
 if (!empty($org_webinars)) {
     usort($org_webinars, function($a, $b) {

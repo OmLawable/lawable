@@ -21,6 +21,16 @@ $org_courses = $db->query('courses', [
     [$filter_field, 'EQUAL', $user['id']]
 ], 200);
 
+// Calculate enrollment count per course
+$all_enrollments = $db->query('enrollments', [], 1000);
+$enrollmentCounts = [];
+foreach ($all_enrollments as $e) {
+    $cId = $e['courseId'] ?? '';
+    if (!empty($cId)) {
+        $enrollmentCounts[$cId] = ($enrollmentCounts[$cId] ?? 0) + 1;
+    }
+}
+
 // Sort by createdAt descending
 if (!empty($org_courses)) {
     usort($org_courses, function($a, $b) {
@@ -301,7 +311,11 @@ function diffColor(string $diff): string
                   <strong><?= $is_free ? '<span style="color:var(--green);">Free</span>' : '₹' . number_format((float)$c['price']) ?></strong>
                 </td>
                 <td>
-                  <strong><?= number_format((int)($c['enrollment_count'] ?? 0)) ?></strong> students
+                  <?php $enrollCount = $enrollmentCounts[$c['__id']] ?? (int)($c['enrollment_count'] ?? 0); ?>
+                  <a href="enrolled-students.php?course_id=<?= urlencode($c['__id']) ?>" style="color:var(--gold-dark); text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:0.3rem;" title="View enrolled students for <?= e($c['title']) ?>">
+                    <strong><?= number_format($enrollCount) ?></strong> students
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.75;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                  </a>
                 </td>
                 <td>
                   <span class="status-badge status-<?= $c['status'] ?>">
