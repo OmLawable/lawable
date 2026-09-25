@@ -52,19 +52,20 @@ function get_firebase_factory(): Factory
  * Returns decoded claims array: ['uid', 'email', 'name']
  * Throws RuntimeException on failure.
  *
- * @param  string $idToken  Raw Firebase ID token from the client.
- * @return array            Decoded token claims.
+ * @param  string $idToken          Raw Firebase ID token from the client.
+ * @param  int    $leewayInSeconds  Allowed clock drift in seconds (default: 300s / 5m).
+ * @return array                    Decoded token claims.
  * @throws RuntimeException If token is invalid or expired.
  */
-function verify_firebase_token(string $idToken): array
+function verify_firebase_token(string $idToken, int $leewayInSeconds = 300): array
 {
     if ($idToken === '') {
         throw new RuntimeException('No Firebase ID token provided.');
     }
 
     try {
-        $auth         = get_firebase_factory()->createAuth();
-        $verifiedToken = $auth->verifyIdToken($idToken);
+        $auth          = get_firebase_factory()->createAuth();
+        $verifiedToken = $auth->verifyIdToken($idToken, false, $leewayInSeconds);
         $claims        = $verifiedToken->claims();
 
         return [
